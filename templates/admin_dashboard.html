@@ -1,0 +1,2981 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>DHL Express - Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+  <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet"/>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+  <style>
+    :root {
+      --dhl-red: #D40511;
+      --dhl-yellow: #FFCC00;
+      --dhl-dark: #1a1a1a;
+    }
+    
+    body { 
+      background: #f0f2f5; 
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+    
+    /* Modern Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: var(--dhl-red); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #b0040e; }
+    
+    .stat-card {
+      background: white;
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      border-left: 4px solid var(--dhl-red);
+      transition: all 0.3s ease;
+      cursor: default;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 100px;
+      height: 100px;
+      background: radial-gradient(circle, rgba(212,5,17,0.05) 0%, transparent 70%);
+      border-radius: 50%;
+      transform: translate(30%, -30%);
+    }
+    .stat-card:hover { 
+      transform: translateY(-3px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    }
+    .stat-card .icon { 
+      font-size: 2rem; 
+      color: var(--dhl-red); 
+      opacity: 0.7;
+      z-index: 1;
+      position: relative;
+    }
+    .stat-card h3 { 
+      font-weight: 700; 
+      color: var(--dhl-dark);
+      z-index: 1;
+      position: relative;
+    }
+    .stat-card .label { 
+      color: #6b7280; 
+      font-size: 0.85rem; 
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      z-index: 1;
+      position: relative;
+    }
+    .stat-card .stat-change {
+      font-size: 0.75rem;
+      font-weight: 600;
+      z-index: 1;
+      position: relative;
+    }
+    .stat-card .stat-change.up { color: #22c55e; }
+    .stat-card .stat-change.down { color: #dc2626; }
+    
+    .status-badge {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.75rem;
+      letter-spacing: 0.3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .status-badge i { font-size: 0.65rem; }
+    
+    .stage-badge {
+      font-size: 0.6rem;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+    .stage-badge.pickup { background: #dbeafe; color: #1e40af; }
+    .stage-badge.transit { background: #fef3c7; color: #92400e; }
+    .stage-badge.customs { background: #fce7f3; color: #be185d; }
+    .stage-badge.delivery { background: #fce7f3; color: #be185d; }
+    .stage-badge.delivered { background: #dcfce7; color: #16a34a; }
+    .stage-badge.exception { background: #fee2e2; color: #dc2626; }
+    
+    .table th {
+      background: #f8f9fa;
+      font-weight: 600;
+      color: #4a5568;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid #e2e8f0;
+      white-space: nowrap;
+      padding: 10px 8px;
+    }
+    .table td { 
+      vertical-align: middle; 
+      padding: 10px 8px;
+      font-size: 0.85rem;
+    }
+    .table tr:hover { background: #f8fafc; }
+    
+    .btn-pause, .btn-resume, .btn-create, .btn-view, .btn-email,
+    .btn-block, .btn-paid {
+      font-size: 0.7rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+      border: none;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-pause { background: #fee2e2; color: #dc2626; }
+    .btn-pause:hover { background: #fecaca; transform: scale(1.05); }
+    .btn-resume { background: #dcfce7; color: #16a34a; }
+    .btn-resume:hover { background: #bbf7d0; transform: scale(1.05); }
+    .btn-view { background: #f1f5f9; color: #475569; }
+    .btn-view:hover { background: #e2e8f0; transform: scale(1.05); }
+    .btn-email { background: #dbeafe; color: #2563eb; }
+    .btn-email:hover { background: #bfdbfe; transform: scale(1.05); }
+    .btn-block { background: #fef3c7; color: #92400e; }
+    .btn-block:hover { background: #fde68a; transform: scale(1.05); }
+    .btn-paid { background: #dcfce7; color: #16a34a; }
+    .btn-paid:hover { background: #bbf7d0; transform: scale(1.05); }
+    .btn-paid:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .btn-create { background: var(--dhl-red); color: white; padding: 8px 20px; }
+    .btn-create:hover { background: #b0040e; color: white; transform: scale(1.02); }
+    
+    .speed-slider {
+      width: 100%;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: #e2e8f0;
+      border-radius: 2px;
+      outline: none;
+      flex: 1;
+    }
+    .speed-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--dhl-red);
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(212,5,17,0.3);
+      transition: all 0.2s;
+    }
+    .speed-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+      box-shadow: 0 2px 8px rgba(212,5,17,0.4);
+    }
+    
+    .dhl-header {
+      background: linear-gradient(135deg, var(--dhl-red) 0%, #b0040e 100%);
+      color: white;
+      padding: 1.5rem 2rem;
+      border-radius: 16px 16px 0 0;
+      box-shadow: 0 4px 20px rgba(212,5,17,0.2);
+    }
+
+    .container-fluid {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+
+    .card {
+      border-radius: 16px;
+    }
+
+    .card-header .btn {
+      white-space: nowrap;
+    }
+    
+    #map {
+      height: 400px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      z-index: 0;
+    }
+    
+    .modal-content {
+      border-radius: 16px;
+      border: none;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    }
+    .modal-header {
+      border-radius: 16px 16px 0 0;
+      padding: 1rem 1.5rem;
+    }
+    .modal-body { padding: 1.5rem; }
+    .modal-footer { padding: 1rem 1.5rem; }
+    
+    .select2-container--bootstrap-5 .select2-selection {
+      border-radius: 8px;
+      border-color: #d1d5db;
+    }
+    .select2-container--bootstrap-5 .select2-selection:hover {
+      border-color: var(--dhl-red);
+    }
+    
+    .form-control, .form-select {
+      border-radius: 8px;
+      border-color: #d1d5db;
+      transition: all 0.2s;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: var(--dhl-red);
+      box-shadow: 0 0 0 0.25rem rgba(212, 5, 17, 0.15);
+    }
+    
+    .created-shipment {
+      background: #f0fdf4;
+      border-left: 4px solid #22c55e;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      animation: slideIn 0.3s ease;
+    }
+    
+    .live-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #22c55e;
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateX(20px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    .service-level-badge {
+      font-size: 0.6rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: #f1f5f9;
+      color: #334155;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+    .service-level-badge.premium { background: #fef3c7; color: #92400e; }
+    .service-level-badge.express { background: #dbeafe; color: #1e40af; }
+    .service-level-badge.economy { background: #f1f5f9; color: #64748b; }
+    
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      max-width: 380px;
+    }
+    .toast-custom {
+      background: white;
+      border-radius: 12px;
+      padding: 16px 20px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+      border-left: 4px solid var(--dhl-red);
+      margin-bottom: 10px;
+      animation: toastSlide 0.3s ease;
+      backdrop-filter: blur(10px);
+    }
+    .toast-custom.success { border-left-color: #22c55e; }
+    .toast-custom.error { border-left-color: #dc2626; }
+    .toast-custom.warning { border-left-color: #f59e0b; }
+    .toast-custom .toast-title { font-weight: 600; font-size: 0.9rem; }
+    .toast-custom .toast-message { font-size: 0.85rem; color: #6b7280; }
+    
+    @keyframes toastSlide {
+      from { transform: translateX(100px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    .pagination .page-link {
+      color: var(--dhl-red);
+      border-radius: 8px;
+      margin: 0 2px;
+      border: none;
+      padding: 0.5rem 0.9rem;
+      font-weight: 500;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+    }
+    .pagination .page-link:hover {
+      background: #f1f5f9;
+      color: var(--dhl-red);
+      transform: translateY(-1px);
+    }
+    .pagination .page-item.active .page-link {
+      background: var(--dhl-red);
+      color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(212,5,17,0.3);
+    }
+    
+    .progress {
+      height: 5px;
+      border-radius: 4px;
+      background: #e2e8f0;
+      overflow: hidden;
+      width: 100%;
+    }
+    .progress-bar {
+      background: linear-gradient(90deg, var(--dhl-red), #ff4444);
+      transition: width 0.5s ease;
+      border-radius: 4px;
+    }
+    
+    .proof-signature {
+      font-size: 0.7rem;
+      background: #f1f5f9;
+      padding: 2px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      max-width: 120px;
+      display: inline-block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #1a1a1a; /* ensure visibility on white */
+    }
+    @media (prefers-color-scheme: dark) {
+      .proof-signature {
+        background: #2d3748;
+        color: #e2e8f0;
+      }
+    }
+    
+    .delivery-window {
+      font-size: 0.7rem;
+      color: #059669;
+      white-space: nowrap;
+    }
+    
+    .table-responsive {
+      border-radius: 0 0 16px 16px;
+    }
+    
+    /* Loading Spinner */
+    .loading-spinner {
+      display: none;
+      text-align: center;
+      padding: 2rem;
+    }
+    .loading-spinner.show {
+      display: block;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+    }
+    .empty-state i {
+      font-size: 4rem;
+      color: #d1d5db;
+      margin-bottom: 1rem;
+    }
+    .empty-state h5 {
+      color: #6b7280;
+    }
+    .empty-state p {
+      color: #9ca3af;
+    }
+    
+    /* Billing badge */
+    .billing-badge {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .billing-badge.paid { background: #dcfce7; color: #16a34a; }
+    .billing-badge.unpaid { background: #fee2e2; color: #dc2626; }
+    .billing-badge.pending { background: #fef3c7; color: #92400e; }
+    .billing-badge.failed { background: #fef2f2; color: #b91c1c; }
+    
+    /* ============================================================
+       MOBILE CARDS (improved)
+    ============================================================ */
+    .invoice-mobile-card {
+      background: #fff;
+      padding: 1rem 1.2rem;
+      margin-bottom: 0.75rem;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+      border: 1px solid #f0f0f0;
+      border-radius: 0;
+    }
+    .invoice-mobile-card .row-line {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.25rem 0;
+      font-size: 0.8rem;
+    }
+    .invoice-mobile-card .row-line .label {
+      color: #6b7280;
+      font-weight: 500;
+      flex-shrink: 0;
+      margin-right: 1rem;
+    }
+    .invoice-mobile-card .row-line .value {
+      font-weight: 600;
+      color: var(--dhl-dark);
+      flex: 1;
+      text-align: right;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+    /* Make progress and speed controls fill the value space */
+    .invoice-mobile-card .row-line .value .progress-wrapper,
+    .invoice-mobile-card .row-line .value .speed-wrapper {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .invoice-mobile-card .row-line .value .progress-wrapper .progress {
+      flex: 1;
+    }
+    .invoice-mobile-card .row-line .value .speed-wrapper .speed-slider {
+      flex: 1;
+    }
+    /* Waybill number bigger */
+    .invoice-mobile-card .row-line .value code {
+      font-size: 1rem;
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .invoice-mobile-card .actions {
+      margin-top: 0.6rem;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border-top: 1px solid #f0f0f0;
+      padding-top: 0.6rem;
+    }
+
+    /* Dropdown icon no caret + compact */
+    .dropdown-toggle-icon::after { display: none; }
+    .dropdown-toggle-icon { width: auto; padding: 4px 12px; text-align: center; }
+    .dropdown-menu { min-width: 190px; font-size: 0.85rem; }
+
+    /* Sticky first column on tablet (optional) */
+    @media (max-width: 991.98px) and (min-width: 768px) {
+      .table-responsive table th:first-child,
+      .table-responsive table td:first-child {
+        position: sticky;
+        left: 0;
+        background: white;
+        z-index: 2;
+        box-shadow: 2px 0 4px rgba(0,0,0,0.06);
+      }
+      @media (prefers-color-scheme: dark) {
+        .table-responsive table th:first-child,
+        .table-responsive table td:first-child {
+          background: #16213e;
+        }
+      }
+    }
+
+    /* ============================================================
+       RESPONSIVE OVERRIDES
+    ============================================================ */
+    @media (max-width: 992px) {
+      .dhl-header { padding: 1rem; }
+      .dhl-header .btn { font-size: 0.75rem; padding: 0.25rem 0.5rem; }
+      .stat-card { padding: 1rem; }
+      .stat-card h3 { font-size: 1.25rem; }
+    }
+    
+    @media (max-width: 768px) {
+      .dhl-header .row { 
+        flex-direction: row !important;
+        flex-wrap: wrap;
+        text-align: left !important;
+        gap: 0.5rem;
+      }
+      .dhl-header .col-md-6 { 
+        width: auto;
+        flex: 1 1 auto;
+      }
+      .dhl-header .col-md-6.text-end { 
+        text-align: right !important;
+        flex: 0 0 auto;
+      }
+      .dhl-header .btn { 
+        font-size: 0.65rem !important;
+        padding: 0.2rem 0.5rem !important;
+        white-space: nowrap;
+      }
+      .dhl-header .me-2 { margin-right: 0.3rem !important; }
+      .dhl-header .me-3 { margin-right: 0.3rem !important; }
+      
+      .stat-card { padding: 0.75rem; }
+      .stat-card h3 { font-size: 1.1rem; }
+      
+      .invoice-mobile-card { padding: 0.8rem; margin-bottom: 0.5rem; }
+      .invoice-mobile-card .row-line { font-size: 0.75rem; }
+    }
+    
+    @media (max-width: 576px) {
+      .dhl-header .col-md-6.text-end {
+        text-align: left !important;
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+        align-items: center;
+      }
+      .dhl-header .col-md-6.text-end .btn {
+        flex: 0 0 auto;
+        font-size: 0.6rem !important;
+        padding: 0.15rem 0.4rem !important;
+      }
+      .dhl-header .col-md-6.text-end .text-white-50 {
+        font-size: 0.7rem;
+      }
+      #map { height: 220px; }
+      .stat-card { padding: 0.6rem; }
+      .stat-card h3 { font-size: 0.95rem; }
+      .stat-card .icon { font-size: 1.25rem; }
+      .stat-card .label { font-size: 0.65rem; }
+      
+      .invoice-mobile-card { padding: 0.6rem; }
+      .invoice-mobile-card .row-line { font-size: 0.7rem; }
+      .invoice-mobile-card .row-line .value code { font-size: 0.9rem; }
+      .invoice-mobile-card .actions .dropdown-toggle-icon { font-size: 0.75rem; padding: 2px 8px; }
+      
+      .proof-signature { max-width: 80px; font-size: 0.55rem; }
+      .delivery-window { font-size: 0.55rem; }
+      
+      .toast-container { 
+        top: auto; 
+        bottom: 15px; 
+        right: 10px; 
+        left: 10px; 
+        max-width: calc(100% - 20px); 
+      }
+      .modal-dialog { margin: 1rem; max-width: calc(100% - 2rem); }
+      .modal-lg { max-width: 100%; }
+    }
+
+    @media (max-width: 420px) {
+      .dhl-header { padding: 0.75rem; }
+      .dhl-header .col-md-6.text-end .btn {
+        font-size: 0.55rem !important;
+        padding: 0.1rem 0.35rem !important;
+      }
+      .dhl-header h3 { font-size: 1rem !important; }
+      .dhl-header img { height: 28px !important; }
+      
+      .stat-card { padding: 0.5rem; }
+      .stat-card h3 { font-size: 0.85rem; }
+      .stat-card .icon { font-size: 1rem; }
+      .stat-card .label { font-size: 0.55rem; }
+      
+      .speed-slider { width: 100%; }
+      .speed-value { font-size: 0.6rem !important; min-width: 20px !important; }
+      
+      #map { height: 180px; }
+    }
+
+    /* Compact stats – applied when body has class 'compact-stats' */
+    body.compact-stats .stat-card {
+      padding: 0.5rem !important;
+      border-radius: 10px !important;
+    }
+    body.compact-stats .stat-card h3 {
+      font-size: 0.9rem !important;
+      margin-bottom: 0.1rem;
+    }
+    body.compact-stats .stat-card .label {
+      display: none !important;
+    }
+    body.compact-stats .row.g-3 .col-md-3 {
+      flex: 0 0 50%;
+      max-width: 50%;
+    }
+    /* Also apply compact stats on small screens automatically */
+    @media (max-width: 576px) {
+      .stat-card {
+        padding: 0.5rem !important;
+        border-radius: 10px !important;
+      }
+      .stat-card h3 {
+        font-size: 0.9rem !important;
+        margin-bottom: 0.1rem;
+      }
+      .stat-card .label {
+        display: none !important;
+      }
+      .stat-card .icon {
+        font-size: 1.1rem !important;
+        opacity: 0.9;
+      }
+      .stat-card .stat-change {
+        font-size: 0.6rem;
+      }
+      .stat-card::after {
+        width: 50px;
+        height: 50px;
+        transform: translate(20%, -20%);
+      }
+      .stat-card .icon, .stat-card h3 {
+        display: inline-block;
+        vertical-align: middle;
+      }
+      .stat-card .icon {
+        margin-left: 4px;
+      }
+      .row.g-3 .col-md-3 {
+        flex: 0 0 50%;
+        max-width: 50%;
+      }
+    }
+
+    .truck-marker { 
+      background: transparent; 
+      border: none; 
+      font-size: 22px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    }
+    
+    /* Dark Mode Support – fully fixed */
+    @media (prefers-color-scheme: dark) {
+      body { background: #1a1a2e; }
+      .stat-card { background: #16213e; border-left-color: var(--dhl-red); }
+      .stat-card .label { color: #94a3b8; }
+      .stat-card h3 { color: #f1f5f9; }
+      .stat-card .icon { color: #94a3b8; }
+      .stat-change.up { color: #4ade80; }
+      .stat-change.down { color: #f87171; }
+      
+      .card { background: #16213e; border-color: #1e293b; }
+      .card-header { 
+        background: transparent; 
+        color: #e2e8f0; 
+      }
+      .card-header .text-muted { color: #94a3b8 !important; }
+      .card-header .btn-outline-secondary { color: #94a3b8; border-color: #334155; }
+      .card-header .btn-outline-secondary:hover { background: #334155; color: white; }
+      
+      .table th { background: #1a1a2e; color: #94a3b8; border-bottom-color: #1e293b; }
+      .table td { color: #e2e8f0; }
+      .table tr:hover { background: #1e293b; }
+      
+      .form-control, .form-select { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+      .form-control:focus, .form-select:focus { border-color: var(--dhl-red); }
+      
+      .modal-content { background: #16213e; color: #e2e8f0; }
+      .modal-header { border-bottom-color: #1e293b; }
+      .modal-footer { border-top-color: #1e293b; }
+      
+      .toast-custom { background: #1e293b; color: #e2e8f0; }
+      .created-shipment { background: #0f172a; color: #e2e8f0; }
+      
+      .pagination .page-link { background: #1e293b; color: #94a3b8; }
+      .pagination .page-link:hover { background: #334155; color: white; }
+      .pagination .page-item.active .page-link { background: var(--dhl-red); color: white; }
+      
+      .bg-light { background: #1e293b !important; }
+      .text-muted { color: #94a3b8 !important; }
+      .alert-light { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+      .btn-outline-secondary { color: #94a3b8; border-color: #334155; }
+      .btn-outline-secondary:hover { background: #334155; color: white; }
+      
+      .invoice-mobile-card { background: #16213e; border-color: #1e293b; }
+      .invoice-mobile-card .row-line .label { color: #94a3b8; }
+      .invoice-mobile-card .row-line .value { color: #e2e8f0; }
+      .invoice-mobile-card .row-line .value code { background: #1e293b; color: #e2e8f0; }
+      .invoice-mobile-card .actions { border-top-color: #1e293b; }
+      
+      .proof-signature { background: #2d3748; color: #e2e8f0; }
+      
+      /* Fix detail modal checkpoint visibility */
+      #detailContent .p-2.mb-1.rounded {
+        background: #1e293b !important;
+        color: #e2e8f0 !important;
+      }
+      #detailContent .p-2.mb-1.rounded .text-muted {
+        color: #94a3b8 !important;
+      }
+      
+      /* Empty state */
+      .empty-state i { color: #334155; }
+      .empty-state h5 { color: #e2e8f0; }
+      .empty-state p { color: #94a3b8; }
+      
+      /* Badge bg-light text-dark */
+      .badge.bg-light.text-dark {
+        background: #1e293b !important;
+        color: #e2e8f0 !important;
+      }
+      
+      /* Speed slider */
+      .speed-slider { background: #334155; }
+      .speed-slider::-webkit-slider-thumb { background: var(--dhl-red); }
+      
+      /* Service level badge */
+      .service-level-badge { background: #1e293b; color: #94a3b8; }
+      .service-level-badge.premium { background: #451a03; color: #fbbf24; }
+      .service-level-badge.express { background: #1e3a5f; color: #60a5fa; }
+      .service-level-badge.economy { background: #1e293b; color: #94a3b8; }
+      
+      /* Stage badges */
+      .stage-badge.pickup { background: #1e3a5f; color: #60a5fa; }
+      .stage-badge.transit { background: #451a03; color: #fbbf24; }
+      .stage-badge.customs { background: #4c1d5e; color: #d8b4fe; }
+      .stage-badge.delivery { background: #4c1d5e; color: #d8b4fe; }
+      .stage-badge.delivered { background: #14532d; color: #4ade80; }
+      .stage-badge.exception { background: #7f1d1d; color: #fca5a5; }
+      
+      /* Status badges */
+      .status-badge.bg-success { background: #14532d !important; color: #4ade80 !important; }
+      .status-badge.bg-danger { background: #7f1d1d !important; color: #fca5a5 !important; }
+      .status-badge.bg-warning { background: #451a03 !important; color: #fbbf24 !important; }
+      .status-badge.bg-primary { background: #1e3a5f !important; color: #60a5fa !important; }
+      .status-badge.bg-secondary { background: #1e293b !important; color: #94a3b8 !important; }
+      
+      /* Billing badges */
+      .billing-badge.paid { background: #14532d; color: #4ade80; }
+      .billing-badge.unpaid { background: #7f1d1d; color: #fca5a5; }
+      .billing-badge.pending { background: #451a03; color: #fbbf24; }
+      .billing-badge.failed { background: #7f1d1d; color: #fca5a5; }
+      
+      /* Delivery window */
+      .delivery-window { color: #4ade80; }
+
+      /* Footer dark mode */
+      .footer {
+        background: #16213e !important;
+        border-top-color: #1e293b !important;
+      }
+      .footer .text-muted { color: #94a3b8 !important; }
+      .footer a.text-muted { color: #94a3b8 !important; }
+      .footer a.text-muted:hover { color: #e2e8f0 !important; }
+    }
+
+    /* Checkpoint editor */
+    .checkpoint-editor .checkpoint-item {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 6px;
+      align-items: center;
+    }
+    .checkpoint-editor .checkpoint-item input {
+      flex: 1;
+    }
+    .checkpoint-editor .checkpoint-item .btn-remove {
+      flex-shrink: 0;
+      padding: 2px 8px;
+    }
+    .checkpoint-editor .add-checkpoint-btn {
+      margin-top: 8px;
+    }
+    
+    /* Photo upload preview */
+    #photoPreview img {
+      max-width: 200px;
+      max-height: 200px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      padding: 4px;
+      background: white;
+    }
+
+    /* Footer styling */
+    .footer {
+      background: #f8f9fa;
+      border-top: 1px solid #e5e7eb;
+      padding: 1.5rem 0;
+      margin-top: 2rem;
+    }
+    .footer a {
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .footer a:hover {
+      color: var(--dhl-red) !important;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    // Load admin-friendly error_code -> message map for UI
+    window.errorCodeMap = {};
+    document.addEventListener('DOMContentLoaded', function() {
+      fetch('/admin/api/error_codes')
+        .then(r => r.json())
+        .then(map => { window.errorCodeMap = map || {}; })
+        .catch(() => { window.errorCodeMap = {}; });
+    });
+  </script>
+  <div class="container-fluid px-4 py-3">
+    <!-- Header -->
+    <div class="dhl-header px-4 mb-4">
+      <div class="row align-items-center">
+        <div class="col-md-6">
+          <div class="d-flex align-items-center gap-3">
+            <img src="{{ url_for('static', filename='dhl-logo.png') }}" 
+                 alt="DHL" height="40" style="filter: brightness(0) invert(1);">
+            <h3 class="mb-0 fw-bold">Admin Dashboard</h3>
+          </div>
+        </div>
+        <div class="col-md-6 text-end">
+          <span class="text-white-50 me-3"><span class="live-indicator"></span>Live</span>
+          <span class="text-white-50 me-3" id="clock-display" style="font-family: monospace; font-size: 0.9rem;"></span>
+          <button class="btn btn-light btn-sm me-2" onclick="showCreateModal()">
+            <i class="bi bi-plus-lg"></i> New
+          </button>
+          <button id="compactToggle" class="btn btn-outline-light btn-sm me-2 d-none d-sm-inline-block" title="Toggle compact stats">
+            <i class="bi bi-arrows-collapse"></i>
+          </button>
+          <a href="{{ url_for('admin_csv') }}" class="btn btn-light btn-sm me-2">
+            <i class="bi bi-download"></i>
+          </a>
+          <span id="queuedEmailsBadge" class="badge bg-warning text-dark me-2 d-none" style="font-weight:600;">
+            <i class="bi bi-inbox-fill me-1"></i>
+            <span id="queuedEmailsCount">0</span> queued
+          </span>
+          <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-light btn-sm">
+            <i class="bi bi-box-arrow-right"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+    <script>
+      function updateQueuedEmailsBadge() {
+        fetch('/admin/api/notifications/count')
+          .then(r => r.json())
+          .then(j => {
+            const cnt = parseInt(j.count || 0, 10);
+            const badge = document.getElementById('queuedEmailsBadge');
+            const cntEl = document.getElementById('queuedEmailsCount');
+            if (!badge || !cntEl) return;
+            if (cnt > 0) {
+              cntEl.textContent = cnt;
+              badge.classList.remove('d-none');
+            } else {
+              badge.classList.add('d-none');
+            }
+          })
+          .catch(() => {});
+      }
+      document.addEventListener('DOMContentLoaded', function() {
+        try { updateQueuedEmailsBadge(); } catch (e) {}
+        setInterval(updateQueuedEmailsBadge, 15000);
+      });
+    </script>
+
+    <!-- Live Map -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-transparent d-flex justify-content-between align-items-center border-0 pt-3">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-map me-2 text-danger"></i>Live Tracking</h6>
+        <div>
+          <small class="text-muted me-3" id="map-status">Loading shipments...</small>
+          <button class="btn btn-outline-secondary btn-sm" onclick="refreshMap()">
+            <i class="bi bi-arrow-clockwise"></i>
+          </button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div id="map"></div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-3 col-sm-6">
+        <div class="stat-card">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="label">Total Shipments</div>
+              <h3 class="mb-1" id="total-count">{{ total|default(0) }}</h3>
+              <span class="stat-change up"><i class="bi bi-arrow-up"></i> 12%</span>
+            </div>
+            <div class="icon"><i class="bi bi-box-seam"></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6">
+        <div class="stat-card">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="label">In Transit</div>
+              <h3 class="mb-1" id="in-transit-count">0</h3>
+              <span class="stat-change up"><i class="bi bi-arrow-up"></i> 8%</span>
+            </div>
+            <div class="icon"><i class="bi bi-truck"></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6">
+        <div class="stat-card">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="label">Delivered</div>
+              <h3 class="mb-1" id="delivered-count">0</h3>
+              <span class="stat-change up"><i class="bi bi-arrow-up"></i> 24%</span>
+            </div>
+            <div class="icon"><i class="bi bi-check-circle"></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6">
+        <div class="stat-card" style="border-left-color: #dc2626;">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="label">Exceptions</div>
+              <h3 class="mb-1 text-danger" id="exception-count">0</h3>
+              <span class="stat-change down"><i class="bi bi-arrow-down"></i> 3%</span>
+            </div>
+            <div class="icon" style="color: #dc2626;"><i class="bi bi-exclamation-triangle"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shipment Section: table on desktop, cards on mobile -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center pt-3">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-list-ul me-2 text-danger"></i>Shipments</h6>
+        <div>
+          <span class="badge bg-light text-dark me-2" id="shipment-count">{{ shipments|length }} of {{ total|default(0) }}</span>
+          <button class="btn btn-outline-secondary btn-sm" onclick="refreshData()">
+            <i class="bi bi-arrow-clockwise"></i>
+          </button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <!-- === DESKTOP TABLE (hidden on mobile) === -->
+        <div class="d-none d-md-block table-responsive">
+          <table class="table table-hover table-sm mb-0" id="shipment-table">
+            <thead>
+              <tr>
+                <th>Waybill</th>
+                <th>Status</th>
+                <th>Stage</th>
+                <th>Service</th>
+                <th>Billing</th>
+                <th>Delivery Window</th>
+                <th>Proof of Delivery</th>
+                <th>Progress</th>
+                <th>Speed</th>
+                <th>Controls</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if shipments %}
+                {% for s in shipments %}
+                <tr data-tn="{{ s.tracking_number }}" 
+                    data-status="{{ s.status }}"
+                    data-stage="{{ s.stage|default('pickup') }}"
+                    data-delivered="{{ s.status == 'Delivered' }}"
+                    data-exception="{{ s.status == 'Exception' }}"
+                    data-paused="{{ s.paused|default(false)|lower }}"
+                    data-invoice-amount="{{ s.invoice_amount|default(0, true) }}"
+                    data-payment-status="{{ s.payment_status|default('unpaid') }}">
+                  <td>
+                    <code style="font-size:0.7rem; background:#f1f5f9; padding:2px 6px; border-radius:4px; white-space:nowrap;">
+                      {{ s.tracking_number }}
+                    </code>
+                  </td>
+                  <td>
+                    <span class="status-badge bg-{% if s.status == 'Delivered' %}success{% elif s.status == 'Exception' %}danger{% elif s.status == 'Delayed' %}warning{% elif s.status == 'On_Hold' %}warning{% elif s.paused %}secondary{% else %}primary{% endif %} text-white">
+                      <i class="bi {% if s.status == 'Delivered' %}bi-check-circle{% elif s.status == 'In_Transit' %}bi-truck{% elif s.status == 'Out_for_Delivery' %}bi-box-arrow-up{% elif s.status == 'Exception' %}bi-exclamation-triangle{% elif s.status == 'Delayed' %}bi-clock{% elif s.status == 'On_Hold' %}bi-pause-circle{% else %}bi-hourglass-split{% endif %} me-1"></i>
+                      {{ s.status }}{% if s.paused %} <i class="bi bi-pause-circle ms-1"></i>{% endif %}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="stage-badge 
+                      {%- if s.stage == 'pickup' %} pickup
+                      {%- elif s.stage == 'transit' %} transit
+                      {%- elif s.stage == 'customs' %} customs
+                      {%- elif s.stage == 'delivery' %} delivery
+                      {%- elif s.stage == 'delivered' %} delivered
+                      {%- elif s.stage == 'exception' %} exception
+                      {%- else %} pickup{%- endif %}">
+                      {{ s.stage|default('Pickup')|replace('_', ' ')|title }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="service-level-badge 
+                      {%- if '9:00' in s.service_level or '12:00' in s.service_level %} premium
+                      {%- elif 'Express' in s.service_level %} express
+                      {%- elif 'Economy' in s.service_level %} economy
+                      {%- endif %}">
+                      {{ s.service_level or 'DHL Express' }}
+                    </span>
+                  </td>
+                  <td>
+                    <div style="font-size:0.7rem;">
+                      <div><strong>${{ "%.2f"|format(s.invoice_amount|default(0, true)) }}</strong></div>
+                      <span class="billing-badge {% if s.payment_status == 'paid' %}paid{% elif s.payment_status == 'pending' %}pending{% elif s.payment_status == 'failed' %}failed{% else %}unpaid{% endif %}">
+                        {{ (s.payment_status or 'unpaid')|title }}
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="delivery-window">
+                      <i class="bi bi-calendar-event me-1"></i>{{ s.delivery_window or 'Calculating...' }}
+                    </span>
+                  </td>
+                  <td>
+                    {% if s.proof_of_delivery %}
+                    <span class="proof-signature" title="{{ s.proof_of_delivery }}">
+                      <i class="bi bi-pen me-1"></i>{{ s.proof_of_delivery }}
+                    </span>
+                    {% else %}
+                    <span class="text-muted" style="font-size:0.6rem;">Pending</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div style="min-width: 60px;">
+                      <div class="progress">
+                        <div class="progress-bar" role="progressbar" 
+                             style="width: {{ s.progress_percent|default(0) }}%;" 
+                             aria-valuenow="{{ s.progress_percent|default(0) }}" 
+                             aria-valuemin="0" aria-valuemax="100">
+                        </div>
+                      </div>
+                      <small class="text-muted" style="font-size:0.5rem;">{{ "%.0f"|format(s.progress_percent|default(0)) }}%</small>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="d-flex align-items-center gap-1">
+                      <input type="range" class="speed-slider" min="1" max="100" step="1"
+                             value="{{ (s.speed[:-1]|float * 10)|int }}" 
+                             onchange="updateSpeed('{{ s.tracking_number }}', this.value / 10)">
+                      <span class="speed-value" style="font-family: monospace; font-weight:700; font-size:0.65rem; min-width: 25px;">{{ s.speed }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <!-- Desktop: full button row -->
+                    <div class="d-flex gap-1 flex-wrap">
+                      {% if s.paused %}
+                      <button class="btn btn-resume btn-sm" onclick="togglePause('{{ s.tracking_number }}', false)" title="Resume">
+                        <i class="bi bi-play-fill"></i>
+                      </button>
+                      {% else %}
+                      <button class="btn btn-pause btn-sm" onclick="togglePause('{{ s.tracking_number }}', true)" title="Pause">
+                        <i class="bi bi-pause-fill"></i>
+                      </button>
+                      {% endif %}
+                      <button class="btn btn-view btn-sm" onclick="showDetails('{{ s.tracking_number }}')" title="View">
+                        <i class="bi bi-eye"></i>
+                      </button>
+                      {% if s.recipient_email and s.recipient_email != '-' %}
+                      <button class="btn btn-email btn-sm" onclick="showEmailModal('{{ s.tracking_number }}')" title="Email">
+                        <i class="bi bi-envelope"></i>
+                      </button>
+                      {% endif %}
+                      <button class="btn btn-block btn-sm" onclick="blockPayment('{{ s.tracking_number }}')" title="Block for Payment">
+                        <i class="bi bi-credit-card"></i> Block
+                      </button>
+                      <button class="btn btn-paid btn-sm" onclick="markPaid('{{ s.tracking_number }}')" title="Mark as Paid"
+                              {% if s.payment_status == 'paid' or s.payment_status == 'failed' %}disabled{% endif %}>
+                        <i class="bi bi-check-circle"></i> Paid
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="10">
+                    <div class="empty-state">
+                      <i class="bi bi-inbox"></i>
+                      <h5>No Shipments Found</h5>
+                      <p class="text-muted">Create your first shipment using the <strong>New Shipment</strong> button above.</p>
+                      <button class="btn btn-create mt-2" onclick="showCreateModal()">
+                        <i class="bi bi-plus-lg me-1"></i> Create First Shipment
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- === MOBILE CARDS (improved) === -->
+        <div class="d-md-none shipment-cards">
+          {% if shipments %}
+            {% for s in shipments %}
+            <div class="invoice-mobile-card" data-tn="{{ s.tracking_number }}">
+              <div class="row-line">
+                <span class="label">Waybill</span>
+                <span class="value"><code>{{ s.tracking_number }}</code></span>
+              </div>
+              <div class="row-line">
+                <span class="label">Status</span>
+                <span class="value">
+                  <span class="status-badge bg-{% if s.status == 'Delivered' %}success{% elif s.status == 'Exception' %}danger{% elif s.status == 'Delayed' %}warning{% elif s.status == 'On_Hold' %}warning{% elif s.paused %}secondary{% else %}primary{% endif %} text-white">
+                    <i class="bi {% if s.status == 'Delivered' %}bi-check-circle{% elif s.status == 'In_Transit' %}bi-truck{% elif s.status == 'Out_for_Delivery' %}bi-box-arrow-up{% elif s.status == 'Exception' %}bi-exclamation-triangle{% elif s.status == 'Delayed' %}bi-clock{% elif s.status == 'On_Hold' %}bi-pause-circle{% else %}bi-hourglass-split{% endif %} me-1"></i>
+                    {{ s.status }}{% if s.paused %} <i class="bi bi-pause-circle ms-1"></i>{% endif %}
+                  </span>
+                </span>
+              </div>
+              <div class="row-line">
+                <span class="label">Stage</span>
+                <span class="value">
+                  <span class="stage-badge 
+                    {%- if s.stage == 'pickup' %} pickup
+                    {%- elif s.stage == 'transit' %} transit
+                    {%- elif s.stage == 'customs' %} customs
+                    {%- elif s.stage == 'delivery' %} delivery
+                    {%- elif s.stage == 'delivered' %} delivered
+                    {%- elif s.stage == 'exception' %} exception
+                    {%- else %} pickup{%- endif %}">
+                    {{ s.stage|default('Pickup')|replace('_', ' ')|title }}
+                  </span>
+                </span>
+              </div>
+              <div class="row-line">
+                <span class="label">Service</span>
+                <span class="value">
+                  <span class="service-level-badge 
+                    {%- if '9:00' in s.service_level or '12:00' in s.service_level %} premium
+                    {%- elif 'Express' in s.service_level %} express
+                    {%- elif 'Economy' in s.service_level %} economy
+                    {%- endif %}">
+                    {{ s.service_level or 'DHL Express' }}
+                  </span>
+                </span>
+              </div>
+              <div class="row-line">
+                <span class="label">Billing</span>
+                <span class="value">
+                  <div><strong>${{ "%.2f"|format(s.invoice_amount|default(0, true)) }}</strong></div>
+                  <span class="billing-badge {% if s.payment_status == 'paid' %}paid{% elif s.payment_status == 'pending' %}pending{% elif s.payment_status == 'failed' %}failed{% else %}unpaid{% endif %}">
+                    {{ (s.payment_status or 'unpaid')|title }}
+                  </span>
+                </span>
+              </div>
+              <div class="row-line">
+                <span class="label">Delivery Window</span>
+                <span class="value">{{ s.delivery_window or 'Calculating...' }}</span>
+              </div>
+              <div class="row-line">
+                <span class="label">Proof of Delivery</span>
+                <span class="value">
+                  {% if s.proof_of_delivery %}
+                  <span class="proof-signature">{{ s.proof_of_delivery }}</span>
+                  {% else %}
+                  <span class="text-muted" style="font-size:0.6rem;">Pending</span>
+                  {% endif %}
+                </span>
+              </div>
+              <!-- PROGRESS row – full width -->
+              <div class="row-line">
+                <span class="label">Progress</span>
+                <span class="value">
+                  <div class="progress-wrapper">
+                    <div class="progress" style="height:5px;">
+                      <div class="progress-bar" role="progressbar" style="width:{{ s.progress_percent|default(0) }}%;"></div>
+                    </div>
+                    <small class="text-muted" style="font-size:0.5rem; flex-shrink:0;">{{ "%.0f"|format(s.progress_percent|default(0)) }}%</small>
+                  </div>
+                </span>
+              </div>
+              <!-- SPEED row – full width -->
+              <div class="row-line">
+                <span class="label">Speed</span>
+                <span class="value">
+                  <div class="speed-wrapper">
+                    <input type="range" class="speed-slider" min="1" max="100" step="1"
+                           value="{{ (s.speed[:-1]|float * 10)|int }}" 
+                           onchange="updateSpeed('{{ s.tracking_number }}', this.value / 10)">
+                    <span class="speed-value" style="font-family: monospace; font-weight:700; font-size:0.65rem; min-width:25px; flex-shrink:0;">{{ s.speed }}</span>
+                  </div>
+                </span>
+              </div>
+              <div class="actions">
+                <!-- Mobile dropdown -->
+                <div class="dropdown">
+                  <button class="btn btn-view btn-sm dropdown-toggle-icon w-100" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-three-dots-vertical me-1"></i> Actions
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end w-100">
+                    <li>
+                      {% if s.paused %}
+                      <a class="dropdown-item" href="#" onclick="event.preventDefault(); togglePause('{{ s.tracking_number }}', false);">
+                        <i class="bi bi-play-fill me-2"></i>Resume
+                      </a>
+                      {% else %}
+                      <a class="dropdown-item" href="#" onclick="event.preventDefault(); togglePause('{{ s.tracking_number }}', true);">
+                        <i class="bi bi-pause-fill me-2"></i>Pause
+                      </a>
+                      {% endif %}
+                    </li>
+                    <li><a class="dropdown-item" href="#" onclick="event.preventDefault(); showDetails('{{ s.tracking_number }}');"><i class="bi bi-eye me-2"></i>View details</a></li>
+                    {% if s.recipient_email and s.recipient_email != '-' %}
+                    <li><a class="dropdown-item" href="#" onclick="event.preventDefault(); showEmailModal('{{ s.tracking_number }}');"><i class="bi bi-envelope me-2"></i>Send email</a></li>
+                    {% endif %}
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="#" onclick="event.preventDefault(); blockPayment('{{ s.tracking_number }}');"><i class="bi bi-credit-card me-2"></i>Block for payment</a></li>
+                    <li>
+                      <a class="dropdown-item {% if s.payment_status == 'paid' or s.payment_status == 'failed' %}disabled{% endif %}" href="#"
+                         {% if not (s.payment_status == 'paid' or s.payment_status == 'failed') %}onclick="event.preventDefault(); markPaid('{{ s.tracking_number }}');"{% endif %}>
+                        <i class="bi bi-check-circle me-2"></i>Mark as paid
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="empty-state">
+              <i class="bi bi-inbox"></i>
+              <h5>No Shipments Found</h5>
+              <p class="text-muted">Create your first shipment using the <strong>New Shipment</strong> button above.</p>
+              <button class="btn btn-create mt-2" onclick="showCreateModal()">
+                <i class="bi bi-plus-lg me-1"></i> Create First Shipment
+              </button>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Pagination (works for both views) -->
+      {% if shipments and total_pages > 1 %}
+      <div class="card-footer bg-transparent border-0">
+        <nav>
+          <ul class="pagination justify-content-center mb-0">
+            <!-- Previous button -->
+            {% if page > 1 %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ page - 1 }}" aria-label="Previous">
+                <i class="bi bi-chevron-left"></i>
+              </a>
+            </li>
+            {% endif %}
+            
+            <!-- First page -->
+            {% if page > 2 %}
+            <li class="page-item">
+              <a class="page-link" href="?page=1">1</a>
+            </li>
+            {% if page > 3 %}
+            <li class="page-item disabled">
+              <span class="page-link">…</span>
+            </li>
+            {% endif %}
+            {% endif %}
+            
+            <!-- Previous page -->
+            {% if page - 1 >= 1 %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ page - 1 }}">{{ page - 1 }}</a>
+            </li>
+            {% endif %}
+            
+            <!-- Current page -->
+            <li class="page-item active">
+              <span class="page-link">{{ page }}</span>
+            </li>
+            
+            <!-- Next page -->
+            {% if page + 1 <= total_pages %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ page + 1 }}">{{ page + 1 }}</a>
+            </li>
+            {% endif %}
+            
+            <!-- Last page -->
+            {% if page < total_pages - 1 %}
+            {% if page < total_pages - 2 %}
+            <li class="page-item disabled">
+              <span class="page-link">…</span>
+            </li>
+            {% endif %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ total_pages }}">{{ total_pages }}</a>
+            </li>
+            {% endif %}
+            
+            <!-- Next button -->
+            {% if page < total_pages %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ page + 1 }}" aria-label="Next">
+                <i class="bi bi-chevron-right"></i>
+              </a>
+            </li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+      {% endif %}
+    </div>
+    <!-- End shipment card -->
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="footer">
+      <div class="row align-items-center">
+        <div class="col-md-6 text-center text-md-start">
+          <span class="text-muted">&copy; 2026 DHL International GmbH. All rights reserved.</span>
+        </div>
+        <div class="col-md-6 text-center text-md-end">
+          <a href="#" class="text-muted me-3">Privacy Policy</a>
+          <a href="#" class="text-muted me-3">Terms of Service</a>
+          <a href="#" class="text-muted">Contact</a>
+        </div>
+      </div>
+    </footer>
+
+  </div> <!-- end container-fluid -->
+
+  <!-- === MODALS === -->
+
+  <!-- EMAIL SEND MODAL -->
+  <div class="modal fade" id="emailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header" style="background: var(--dhl-red); color: white;">
+          <h5 class="modal-title"><i class="bi bi-envelope me-2"></i>Send Email Update</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3 mb-3" id="emailShipmentInfo">
+            <div class="col-md-6">
+              <div class="p-2 bg-light rounded">
+                <strong>Tracking:</strong> <code id="emailTrackingNumber">-</code>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="p-2 bg-light rounded">
+                <strong>Recipient:</strong> <span id="emailRecipient">-</span>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="p-2 bg-light rounded">
+                <strong>Status:</strong> <span id="emailStatus">-</span>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="p-2 bg-light rounded">
+                <strong>Destination:</strong> <span id="emailDestination">-</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Email Type</label>
+            <select class="form-select" id="emailType" onchange="updateEmailPreview()">
+              <option value="status_update">Status Update</option>
+              <option value="delivery_confirmation">Delivery Confirmation</option>
+              <option value="exception_alert">Exception Alert</option>
+              <option value="custom">Custom Message</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Custom Message <span class="text-muted">(Optional)</span></label>
+            <textarea class="form-control" id="customEmailMessage" rows="3" 
+                      placeholder="Add a personal message to the email..." 
+                      oninput="updateEmailPreview()"></textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Preview</label>
+            <div id="emailPreview" style="max-height:300px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; padding:1rem; background:#f8fafc; font-size:0.85rem;">
+              <div class="text-muted text-center">Loading preview...</div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#emailHistory">
+              <i class="bi bi-clock-history me-1"></i>View Email History
+            </button>
+            <div class="collapse mt-2" id="emailHistory">
+              <div id="emailHistoryContent" style="max-height:200px; overflow-y:auto;">
+                <div class="text-muted text-center">No email history</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="emailStatusMessage" style="display:none;" class="alert"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-create" id="sendEmailBtn" onclick="sendEmail()">
+            <i class="bi bi-send me-1"></i>Send Email
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- CREATE SHIPMENT MODAL – FULL CONTROL (expanded)               -->
+  <!-- ============================================================ -->
+  <div class="modal fade" id="createModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header" style="background:var(--dhl-red);color:white;">
+          <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Create New Shipment – Full Details</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="createForm">
+            <!-- TWO COLUMNS: Left = origin/destination/service, Right = sender/receiver/details -->
+            <div class="row g-3">
+              <!-- Left column: Core shipment fields -->
+              <div class="col-lg-6">
+                <h6 class="fw-bold text-danger mb-3"><i class="bi bi-truck me-1"></i>Shipment Core</h6>
+                <div class="mb-3">
+                  <label class="form-label fw-bold">Origin <span class="text-danger">*</span></label>
+                  <input list="citiesList" type="text" class="form-control" id="origin" required placeholder="e.g. Lagos, NG">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-bold">Destination <span class="text-danger">*</span></label>
+                  <input list="citiesList" type="text" class="form-control" id="destination" required placeholder="e.g. London, UK">
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-bold">Service Level</label>
+                  <select class="form-select" id="serviceLevel">
+                    <option value="DHL Express">DHL Express</option>
+                    <option value="DHL Express 9:00">DHL Express 9:00</option>
+                    <option value="DHL Express 12:00">DHL Express 12:00</option>
+                    <option value="DHL Economy Select">DHL Economy Select</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label fw-bold">Recipient Email <span class="text-muted">(for notifications)</span></label>
+                  <input type="email" class="form-control" id="recipientEmail" placeholder="recipient@example.com">
+                </div>
+                <!-- NEW: Delivery Window (optional) -->
+                <div class="mb-3">
+                  <label class="form-label fw-bold">Delivery Window <span class="text-muted">(optional)</span></label>
+                  <input type="text" class="form-control" id="deliveryWindow" placeholder="e.g. September 05 (end of day) or 2026-09-05">
+                  <small class="text-muted">If left empty, the system will auto‑calculate.</small>
+                </div>
+                <!-- Bulk create toggle -->
+                <div class="form-check mb-3">
+                  <input class="form-check-input" type="checkbox" id="bulkCreate">
+                  <label class="form-check-label" for="bulkCreate">Bulk Create Mode</label>
+                </div>
+                <div id="bulkContainer" style="display:none;">
+                  <label class="form-label fw-bold">Multiple Shipments (JSON)</label>
+                  <textarea class="form-control" id="bulkData" rows="5" placeholder='[
+  {"origin": "Lagos, NG", "destination": "London, UK", "service_level": "DHL Express", "recipient_email": "cust@example.com"},
+  {"origin": "Dubai, UAE", "destination": "New York, NY", "service_level": "DHL Express 12:00"}
+]' style="font-family: monospace; font-size: 0.85rem;"></textarea>
+                  <small class="text-muted">Each object must have at least origin and destination.</small>
+                </div>
+              </div>
+
+              <!-- Right column: Sender, Receiver, Shipment Details -->
+              <div class="col-lg-6">
+                <!-- Sender -->
+                <h6 class="fw-bold text-danger mb-3"><i class="bi bi-person-up me-1"></i>Sender</h6>
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold">Name</label>
+                    <input type="text" class="form-control" id="senderName" placeholder="Sender name">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold">Location</label>
+                    <input type="text" class="form-control" id="senderLocation" placeholder="City, Country">
+                  </div>
+                </div>
+
+                <!-- Receiver -->
+                <h6 class="fw-bold mt-3" style="color:#0ea5e9;"><i class="bi bi-person-down me-1"></i>Receiver</h6>
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold">Name</label>
+                    <input type="text" class="form-control" id="receiverName" placeholder="Receiver name">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold">Address</label>
+                    <input type="text" class="form-control" id="receiverAddress" placeholder="Street, City, Country">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold">Phone</label>
+                    <input type="text" class="form-control" id="receiverPhone" placeholder="+123456789">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold">Email</label>
+                    <input type="email" class="form-control" id="receiverEmail" placeholder="receiver@example.com">
+                  </div>
+                </div>
+
+                <!-- Shipment Details -->
+                <h6 class="fw-bold mt-3" style="color:#8b5cf6;"><i class="bi bi-box me-1"></i>Shipment Details</h6>
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold">Weight (kg)</label>
+                    <input type="number" step="0.1" min="0" class="form-control" id="weightKg" placeholder="e.g. 12.5">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label fw-bold">Shipment Date</label>
+                    <input type="datetime-local" class="form-control" id="shipmentDate">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+          <!-- datalist for city autocomplete -->
+          <datalist id="citiesList"></datalist>
+          
+          <div id="createResult" style="display:none; margin-top: 1rem;">
+            <div class="alert" id="createAlert"></div>
+            <div id="createdList"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-create" id="createBtn" onclick="createShipment()">
+            <i class="bi bi-plus-lg me-1"></i> Create & Start Simulation
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header" style="background:var(--dhl-red);color:white;">
+          <h5 class="modal-title"><i class="bi bi-truck me-2"></i>Shipment Details</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="detailContent">
+          Loading...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Shipment Modal (with Parcel Photo upload & Billing fields) -->
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header" style="background:var(--dhl-red);color:white;">
+          <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Edit Shipment</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="editForm" data-tn="">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Status</label>
+                <select class="form-select" id="editStatus">
+                  <option>Pending</option>
+                  <option>In_Transit</option>
+                  <option>Out_for_Delivery</option>
+                  <option>Delayed</option>
+                  <option>On_Hold</option>
+                  <option>Customs_Clearance</option>
+                  <option>Delivered</option>
+                  <option>Returned</option>
+                  <option>Exception</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Stage</label>
+                <select class="form-select" id="editStage">
+                  <option value="pickup">Pickup</option>
+                  <option value="transit">Transit</option>
+                  <option value="customs">Customs</option>
+                  <option value="delivery">Delivery</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="exception">Exception</option>
+                </select>
+                <div class="form-check mt-2">
+                  <input class="form-check-input" type="checkbox" id="editLockStage">
+                  <label class="form-check-label" for="editLockStage">
+                    <strong>Lock Stage</strong> (prevents simulation from changing it)
+                  </label>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Service Level</label>
+                <input class="form-control" id="editServiceLevel" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Delivery Window</label>
+                <input class="form-control" id="editDeliveryWindow" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Recipient Email</label>
+                <input class="form-control" id="editRecipientEmail" type="email" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Proof of Delivery</label>
+                <input class="form-control" id="editProofOfDelivery" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Speed Multiplier (e.g. 1.0)</label>
+                <input class="form-control" id="editSpeed" type="number" step="0.1" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Paused</label>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="editPaused">
+                  <label class="form-check-label" for="editPaused">Pause simulation</label>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-bold">Simulation Days</label>
+                <input class="form-control" id="editDays" type="number" step="1" min="1" />
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-bold">Delivery Location</label>
+                <input class="form-control" id="editDeliveryLocation" />
+              </div>
+              
+              <!-- BILLING FIELDS (including Payment Reason) -->
+              <div class="col-md-4">
+                <label class="form-label fw-bold">Invoice Amount ($)</label>
+                <input class="form-control" id="editInvoiceAmount" type="number" step="0.01" min="0" placeholder="0.00">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-bold">Payment Method</label>
+                <select class="form-select" id="editPaymentMethod">
+                  <option value="">Not set</option>
+                  <option value="Credit Card">Credit Card</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="PayPal">PayPal</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-bold">Payment Status</label>
+                <select class="form-select" id="editPaymentStatus">
+                  <option value="unpaid">Unpaid</option>
+                  <option value="pending">Pending</option>
+                  <option value="paid">Paid</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-bold">Payment Reason</label>
+                <input class="form-control" id="editPaymentReason" placeholder="Why was this blocked for payment?">
+              </div>
+              
+              <!-- Parcel Photo Upload Section -->
+              <div class="col-12">
+                <label class="form-label fw-bold">Parcel Photo</label>
+                <div id="photoPreview" class="mb-2">
+                  <img id="currentPhoto" src="" style="display:none; max-width:200px; max-height:200px; border-radius:8px; border:1px solid #e2e8f0; padding:4px; background:white;">
+                </div>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                  <input type="file" class="form-control" id="photoUpload" accept="image/*" style="width:auto; flex:1; min-width:150px;">
+                  <button class="btn btn-sm btn-primary" id="uploadPhotoBtn" onclick="uploadPhoto()">
+                    <i class="bi bi-upload"></i> Upload
+                  </button>
+                </div>
+                <small class="text-muted">Upload a photo of the parcel (PNG, JPG, GIF, WEBP)</small>
+              </div>
+              
+              <!-- Checkpoint editor -->
+              <div class="col-12">
+                <label class="form-label fw-bold">Checkpoints <small class="text-muted">(one per line)</small></label>
+                <div id="checkpointEditor" class="checkpoint-editor">
+                  <!-- Dynamic list will be rendered here -->
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary add-checkpoint-btn" onclick="addCheckpointField()">
+                  <i class="bi bi-plus-circle"></i> Add Checkpoint
+                </button>
+              </div>
+            </div>
+          </form>
+          <div id="editStatusMessage" style="display:none;" class="alert mt-3"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger me-auto" id="deleteShipmentBtn" onclick="confirmDeleteShipment()">
+            <i class="bi bi-trash me-1"></i>Delete Shipment
+          </button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-create" id="saveEditBtn" onclick="saveShipmentEdits()">
+            <i class="bi bi-save me-1"></i>Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // ============================================================
+    // TOAST NOTIFICATIONS
+    // ============================================================
+    function showToast(message, type = 'info', title = '') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast-custom ${type}`;
+      const icons = {
+        success: 'bi-check-circle-fill text-success',
+        error: 'bi-exclamation-circle-fill text-danger',
+        warning: 'bi-exclamation-triangle-fill text-warning',
+        info: 'bi-info-circle-fill text-primary'
+      };
+      const icon = icons[type] || icons.info;
+      const titles = {
+        success: 'Success',
+        error: 'Error',
+        warning: 'Warning',
+        info: 'Info'
+      };
+      toast.innerHTML = `
+        <div class="d-flex align-items-start gap-3">
+          <i class="bi ${icon}" style="font-size: 1.25rem;"></i>
+          <div>
+            <div class="toast-title">${title || titles[type] || 'Info'}</div>
+            <div class="toast-message">${message}</div>
+          </div>
+          <button type="button" class="btn-close ms-auto" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => {
+        if (toast.parentElement) toast.remove();
+      }, 6000);
+    }
+
+    // ============================================================
+    // CLOCK
+    // ============================================================
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock-display').textContent = now.toLocaleTimeString();
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // ============================================================
+    // COMPACT STATS TOGGLE
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggle = document.getElementById('compactToggle');
+      if (toggle) {
+        toggle.addEventListener('click', function() {
+          document.body.classList.toggle('compact-stats');
+          const icon = this.querySelector('i');
+          if (document.body.classList.contains('compact-stats')) {
+            icon.className = 'bi bi-arrows-expand';
+          } else {
+            icon.className = 'bi bi-arrows-collapse';
+          }
+        });
+      }
+    });
+
+    // ============================================================
+    // MODALS
+    // ============================================================
+    const createModal = new bootstrap.Modal(document.getElementById('createModal'));
+    const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+    const emailModal = new bootstrap.Modal(document.getElementById('emailModal'));
+    const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+    const socket = io({ transports: ['polling'] });
+    let currentEmailTn = null;
+
+    // ============================================================
+    // CREATE SHIPMENT – FULL CONTROL
+    // ============================================================
+    function showCreateModal() {
+      document.getElementById('createResult').style.display = 'none';
+      document.getElementById('createForm').reset();
+      // Pre-fill shipment date with now
+      const now = new Date();
+      const localStr = now.toISOString().slice(0, 16);
+      document.getElementById('shipmentDate').value = localStr;
+      // Clear delivery window field
+      document.getElementById('deliveryWindow').value = '';
+      createModal.show();
+      fetch('/admin/api/cities')
+        .then(r => r.json())
+        .then(cities => {
+          const dl = document.getElementById('citiesList');
+          const uniqueCities = [...new Set(cities)];
+          dl.innerHTML = uniqueCities.map(c => `<option value="${c}"></option>`).join('');
+        })
+        .catch(() => {});
+    }
+
+    document.getElementById('bulkCreate').addEventListener('change', function() {
+      document.getElementById('bulkContainer').style.display = this.checked ? 'block' : 'none';
+    });
+
+    function showCreateResult(data) {
+      const resultDiv = document.getElementById('createResult');
+      const alertDiv = document.getElementById('createAlert');
+      const listDiv = document.getElementById('createdList');
+      resultDiv.style.display = 'block';
+
+      if (data.error) {
+        alertDiv.className = 'alert alert-danger';
+        let friendly = data.error || 'Error';
+        if (data.error_code && window.errorCodeMap && window.errorCodeMap[data.error_code]) {
+          friendly = window.errorCodeMap[data.error_code];
+          if (data.error && data.error !== friendly) {
+            friendly = `${friendly} (${data.error})`;
+          }
+        }
+        alertDiv.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i> Error: ' + friendly;
+        listDiv.innerHTML = '';
+        showToast(friendly, 'error');
+        return;
+      }
+
+      if (data.success) {
+        alertDiv.className = 'alert alert-success';
+        const createdList = data.created || [];
+        if (createdList.length > 0) {
+          alertDiv.innerHTML = `
+            <i class="bi bi-check-circle me-2"></i> 
+            Created <strong>${createdList.length}</strong> shipment(s) successfully!
+            ${data.total_errors > 0 ? ` (${data.total_errors} errors)` : ''}
+          `;
+          listDiv.innerHTML = createdList.map(tn => `
+            <div class="created-shipment">
+              <i class="bi bi-box-seam me-2 text-success"></i>
+              <strong>${tn}</strong>
+              <span class="badge bg-primary ms-2">Simulation Started</span>
+              <a href="/track/${tn}" target="_blank" class="btn btn-sm btn-outline-primary ms-2">
+                <i class="bi bi-eye"></i> Track
+              </a>
+            </div>
+          `).join('');
+          showToast(`Created ${createdList.length} shipment(s) successfully!`, 'success');
+          setTimeout(() => location.reload(), 2000);
+        } else {
+          alertDiv.innerHTML = '<i class="bi bi-info-circle me-2"></i> No shipments were created';
+          listDiv.innerHTML = '';
+          showToast('No shipments were created', 'info');
+        }
+      } else {
+        alertDiv.className = 'alert alert-warning';
+        alertDiv.innerHTML = '<i class="bi bi-info-circle me-2"></i> Unexpected response';
+        listDiv.innerHTML = '';
+        showToast('Unexpected response from server', 'error');
+      }
+    }
+
+    function createShipment() {
+      const btn = document.getElementById('createBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Creating...';
+
+      const isBulk = document.getElementById('bulkCreate').checked;
+
+      if (isBulk) {
+        try {
+          const shipments = JSON.parse(document.getElementById('bulkData').value);
+          if (!shipments.length) throw new Error('At least one shipment required');
+          fetch('/admin/api/bulk_create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shipments })
+          })
+          .then(response => response.json())
+          .then(data => {
+            showCreateResult(data);
+          })
+          .catch(err => {
+            showCreateResult({ error: err.message || 'Network error' });
+          })
+          .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-plus-lg me-1"></i> Create & Start Simulation';
+          });
+        } catch (err) {
+          showCreateResult({ error: 'Invalid JSON: ' + err.message });
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-plus-lg me-1"></i> Create & Start Simulation';
+        }
+        return;
+      }
+
+      // Single shipment – collect all fields including delivery_window
+      const data = {
+        origin: document.getElementById('origin').value.trim(),
+        destination: document.getElementById('destination').value.trim(),
+        service_level: document.getElementById('serviceLevel').value,
+        recipient_email: document.getElementById('recipientEmail').value.trim(),
+        sender_name: document.getElementById('senderName').value.trim(),
+        sender_location: document.getElementById('senderLocation').value.trim(),
+        receiver_name: document.getElementById('receiverName').value.trim(),
+        receiver_address: document.getElementById('receiverAddress').value.trim(),
+        receiver_phone: document.getElementById('receiverPhone').value.trim(),
+        receiver_email: document.getElementById('receiverEmail').value.trim(),
+        weight_kg: parseFloat(document.getElementById('weightKg').value) || undefined,
+        shipment_date: document.getElementById('shipmentDate').value || undefined,
+        delivery_window: document.getElementById('deliveryWindow').value.trim() || undefined
+      };
+
+      if (!data.origin || !data.destination) {
+        showCreateResult({ error: 'Origin and destination are required' });
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-plus-lg me-1"></i> Create & Start Simulation';
+        return;
+      }
+
+      fetch('/admin/api/create_shipment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          showCreateResult({
+            success: true,
+            created: [data.tracking_number],
+            total_created: 1,
+            total_errors: 0,
+            shipment: data.shipment
+          });
+        } else {
+          showCreateResult({ error: data.error || 'Failed to create shipment' });
+        }
+      })
+      .catch(err => {
+        showCreateResult({ error: err.message || 'Network error' });
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-plus-lg me-1"></i> Create & Start Simulation';
+      });
+    }
+
+    // ============================================================
+    // EMAIL MODAL
+    // ============================================================
+    function showEmailModal(tn) {
+      currentEmailTn = tn;
+      document.getElementById('emailStatusMessage').style.display = 'none';
+      document.getElementById('sendEmailBtn').disabled = false;
+      document.getElementById('sendEmailBtn').innerHTML = '<i class="bi bi-send me-1"></i>Send Email';
+
+      fetch(`/admin/api/shipment/${tn}`)
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('emailTrackingNumber').textContent = data.tracking_number;
+          document.getElementById('emailRecipient').textContent = data.recipient_email || 'No email on file';
+          document.getElementById('emailStatus').innerHTML = `<span class="badge bg-${data.status === 'Delivered' ? 'success' : data.status === 'Exception' ? 'danger' : 'primary'}">${data.status}</span>`;
+          document.getElementById('emailDestination').textContent = data.delivery_location;
+          loadEmailHistory(tn);
+          updateEmailPreview();
+          emailModal.show();
+        })
+        .catch(() => showEmailStatus('error', 'Failed to load shipment details'));
+    }
+
+    function loadEmailHistory(tn) {
+      fetch(`/admin/api/shipments/email-history/${tn}`)
+        .then(r => r.json())
+        .then(history => {
+          const container = document.getElementById('emailHistoryContent');
+          if (!history || !history.length) {
+            container.innerHTML = '<div class="text-muted text-center">No emails sent yet</div>';
+            return;
+          }
+          container.innerHTML = history.map(h => `
+            <div class="p-2 mb-1 bg-white rounded border" style="font-size:0.8rem;">
+              <div class="d-flex justify-content-between">
+                <strong>${h.type || 'Status Update'}</strong>
+                <small class="text-muted">${h.timestamp ? new Date(h.timestamp).toLocaleString() : 'Unknown time'}</small>
+              </div>
+              <div class="text-muted small">To: ${h.recipient}</div>
+              ${h.message ? `<div class="mt-1">${h.message}</div>` : ''}
+            </div>
+          `).join('');
+        })
+        .catch(() => {
+          document.getElementById('emailHistoryContent').innerHTML = '<div class="text-muted text-center">Error loading history</div>';
+        });
+    }
+
+    function updateEmailPreview() {
+      const tn = currentEmailTn;
+      if (!tn) return;
+      const emailType = document.getElementById('emailType').value;
+      const customMsg = document.getElementById('customEmailMessage').value;
+      const previewContainer = document.getElementById('emailPreview');
+      previewContainer.innerHTML = '<div class="text-muted text-center">Loading preview...</div>';
+
+      fetch(`/admin/api/shipment/${tn}`)
+        .then(r => r.json())
+        .then(data => {
+          const typeLabels = {
+            'status_update': 'Status Update',
+            'delivery_confirmation': 'Delivery Confirmation',
+            'exception_alert': 'Exception Alert',
+            'custom': 'Custom Message'
+          };
+
+          let preview = `
+            <div style="font-family: system-ui, sans-serif;">
+              <div style="background: var(--dhl-red); color: white; padding: 8px 12px; border-radius: 4px 4px 0 0; font-weight: 600;">
+                ${typeLabels[emailType] || 'Shipment Update'}
+              </div>
+              <div style="padding: 12px; background: white; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 4px 4px;">
+                <div><strong>Waybill:</strong> <code>${data.tracking_number}</code></div>
+                <div><strong>Status:</strong> ${data.status}</div>
+                <div><strong>Destination:</strong> ${data.delivery_location}</div>
+          `;
+
+          if (customMsg) {
+            preview += `
+              <div style="margin-top:8px; padding:8px; background:#f0f9ff; border-radius:4px; border-left:3px solid #0ea5e9;">
+                <strong>Message:</strong> ${customMsg}
+              </div>
+            `;
+          }
+
+          if (emailType === 'delivery_confirmation') {
+            const proof = data.proof_of_delivery || 'Signature: J. SMITH';
+            preview += `
+              <div style="margin-top:8px; padding:8px; background:#f0fdf4; border-radius:4px; border-left:3px solid #22c55e;">
+                <strong>Proof of Delivery:</strong><br>${proof}
+              </div>
+            `;
+          }
+
+          preview += `
+                <div style="margin-top:8px; font-size:0.8rem; color:#666;">
+                  <a href="/track/${data.tracking_number}" target="_blank">Track Shipment →</a>
+                </div>
+              </div>
+            </div>
+          `;
+
+          previewContainer.innerHTML = preview;
+        })
+        .catch(() => {
+          previewContainer.innerHTML = '<div class="text-danger">Error loading preview</div>';
+        });
+    }
+
+    function showEmailStatus(type, message) {
+      const el = document.getElementById('emailStatusMessage');
+      el.style.display = 'block';
+      el.className = `alert alert-${type === 'error' ? 'danger' : 'success'}`;
+      el.innerHTML = message;
+    }
+
+    function sendEmail() {
+      const btn = document.getElementById('sendEmailBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sending...';
+
+      const data = {
+        tracking_number: currentEmailTn,
+        email_type: document.getElementById('emailType').value,
+        custom_message: document.getElementById('customEmailMessage').value
+      };
+
+      fetch('/admin/api/send_email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      .then(r => r.json())
+      .then(result => {
+        if (result.success) {
+          showEmailStatus('success', `✅ Email sent successfully to ${result.recipient}`);
+          loadEmailHistory(currentEmailTn);
+          showToast(`Email sent to ${result.recipient}`, 'success');
+        } else if (result.enqueued) {
+          const msg = result.message || 'Email send deferred; notification queued';
+          showEmailStatus('success', `ℹ️ ${msg}`);
+          showToast(msg, 'info');
+        } else {
+          showEmailStatus('error', `❌ ${result.error || 'Unable to send email'}`);
+          showToast(result.error || 'Failed to send email', 'error');
+        }
+      })
+      .catch(err => {
+        showEmailStatus('error', '❌ Failed to send email: ' + (err.message || 'Unknown error'));
+        showToast('Failed to send email', 'error');
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-send me-1"></i>Send Email';
+      });
+    }
+
+    document.getElementById('emailModal').addEventListener('shown.bs.modal', function() {
+      updateEmailPreview();
+    });
+
+    // ============================================================
+    // MAP
+    // ============================================================
+    const map = L.map('map').setView([20, 0], 2);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> & <a href="https://carto.com/">CARTO</a>'
+    }).addTo(map);
+
+    const markers = {};
+    const polylines = {};
+    const markerAnims = {};
+    const cityCoords = {
+      "Lagos, NG": [6.5244, 3.3792],
+      "Abuja, NG": [9.0579, 7.4951],
+      "Port Harcourt, NG": [4.8156, 7.0498],
+      "New York, NY": [40.7128, -74.0060],
+      "Los Angeles, CA": [34.0522, -118.2437],
+      "London, UK": [51.5074, -0.1278],
+      "Dubai, UAE": [25.2048, 55.2708],
+      "Tokyo, JP": [35.6762, 139.6503],
+      "Hong Kong, HK": [22.3193, 114.1694],
+      "Leipzig, DE": [51.3397, 12.3731],
+      "Frankfurt, DE": [50.1109, 8.6821],
+      "Singapore, SG": [1.3521, 103.8198],
+      "Paris, FR": [48.8566, 2.3522],
+      "Berlin, DE": [52.5200, 13.4050],
+      "Mumbai, IN": [19.0760, 72.8777],
+      "Sydney, AU": [-33.8688, 151.2093],
+      "Johannesburg, ZA": [-26.2041, 28.0473],
+      "Cairo, EG": [30.0444, 31.2357],
+      "Moscow, RU": [55.7558, 37.6173],
+      "Toronto, CA": [43.6532, -79.3832],
+      "Mexico City, MX": [19.4326, -99.1332],
+      "Seoul, KR": [37.5665, 126.9780],
+      "Bangkok, TH": [13.7563, 100.5018],
+      "Istanbul, TR": [41.0082, 28.9784],
+      "Cincinnati, OH": [39.1031, -84.5120],
+      "Miami, FL": [25.7617, -80.1918],
+      "Brussels, BE": [50.8476, 4.3572],
+      "Amsterdam, NL": [52.3676, 4.9041],
+      "Rome, IT": [41.9028, 12.4964],
+      "Madrid, ES": [40.4168, -3.7038],
+      "Ibadan, NG": [7.3775, 3.9470],
+      "Kano, NG": [12.0001, 8.5167],
+      "Enugu, NG": [6.4584, 7.5170]
+    };
+
+    function loadCityCoordinates() {
+      return fetch('/admin/api/city_coords')
+        .then(response => response.ok ? response.json() : {})
+        .then(coords => {
+          Object.entries(coords).forEach(([name, value]) => {
+            if (value && Number.isFinite(Number(value.lat)) && Number.isFinite(Number(value.lon))) {
+              cityCoords[name] = [Number(value.lat), Number(value.lon)];
+            }
+          });
+        })
+        .catch(() => {});
+    }
+
+    function getLocationFromCheckpoint(checkpoint) {
+      if (!checkpoint) return null;
+      const parts = checkpoint.split(' - ');
+      return parts.length > 1 ? parts[1] : null;
+    }
+
+    function updateMap(data) {
+      const tn = data.tracking_number;
+      const checkpoints = data.checkpoints || [];
+      const dest = data.delivery_location;
+      const status = data.status;
+      const paused = data.paused || false;
+      const progress = data.progress || 0;
+
+      const lastCheckpoint = checkpoints.length > 0 ? checkpoints[checkpoints.length - 1] : null;
+      let currentLoc = getLocationFromCheckpoint(lastCheckpoint) || dest;
+
+      if (!cityCoords[currentLoc]) {
+        const matchKey = Object.keys(cityCoords).find(key => 
+          currentLoc && (currentLoc.includes(key.split(',')[0]) || key.includes(currentLoc.split(',')[0] || ''))
+        );
+        if (matchKey) cityCoords[currentLoc] = cityCoords[matchKey];
+        else return;
+      }
+
+      if (!markers[tn]) {
+        const icon = L.divIcon({
+          html: `<i class="bi bi-truck" style="color:${status === 'Delivered' ? '#22c55e' : status === 'Exception' ? '#dc2626' : '#D40511'}; font-size:24px;"></i>`,
+          iconSize: [24, 24],
+          className: 'truck-marker'
+        });
+        let markerPos = null;
+        if (data.route_coords && Array.isArray(data.route_coords) && typeof data.progress === 'number') {
+          const p = interpolateAlongRoute(data.route_coords, data.progress);
+          if (p) markerPos = p;
+        }
+        if (!markerPos) {
+          const explicitLat = (data.current_lat !== undefined && data.current_lat !== null) ? data.current_lat : null;
+          const explicitLon = (data.current_lon !== undefined && data.current_lon !== null) ? data.current_lon : null;
+          markerPos = (explicitLat !== null && explicitLon !== null) ? [explicitLat, explicitLon] : cityCoords[currentLoc];
+        }
+        markers[tn] = L.marker(markerPos, { icon }).addTo(map)
+          .bindPopup(`
+            <div style="min-width:150px;">
+              <strong style="color:var(--dhl-red);">${tn}</strong><br>
+              <span class="badge bg-${status === 'Delivered' ? 'success' : status === 'Exception' ? 'danger' : status === 'Delayed' ? 'warning' : status === 'On_Hold' ? 'warning' : 'primary'}">${status}</span><br>
+              <small>📍 ${currentLoc}</small><br>
+              <small>📊 ${Math.round(progress * 100)}% complete</small>
+              ${paused ? '<br><span class="badge bg-secondary">⏸ Paused</span>' : ''}
+            </div>
+          `);
+      } else {
+        let markerPos = null;
+        if (data.route_coords && Array.isArray(data.route_coords) && typeof data.progress === 'number') {
+          const p = interpolateAlongRoute(data.route_coords, data.progress);
+          if (p) markerPos = p;
+        }
+        if (!markerPos) {
+          const explicitLat = (data.current_lat !== undefined && data.current_lat !== null) ? data.current_lat : null;
+          const explicitLon = (data.current_lon !== undefined && data.current_lon !== null) ? data.current_lon : null;
+          markerPos = (explicitLat !== null && explicitLon !== null) ? [explicitLat, explicitLon] : cityCoords[currentLoc];
+        }
+        moveMarkerSmooth(tn, markerPos, 900);
+        markers[tn].setPopupContent(`
+          <div style="min-width:150px;">
+            <strong style="color:var(--dhl-red);">${tn}</strong><br>
+            <span class="badge bg-${status === 'Delivered' ? 'success' : status === 'Exception' ? 'danger' : status === 'Delayed' ? 'warning' : status === 'On_Hold' ? 'warning' : 'primary'}">${status}</span><br>
+            <small>📍 ${currentLoc}</small><br>
+            <small>📊 ${Math.round(progress * 100)}% complete</small>
+            ${paused ? '<br><span class="badge bg-secondary">⏸ Paused</span>' : ''}
+          </div>
+        `);
+      }
+
+      if (!polylines[tn]) {
+        polylines[tn] = L.polyline([], { 
+          color: status === 'Delivered' ? '#22c55e' : '#D40511', 
+          weight: 3, 
+          opacity: 0.6,
+          dashArray: '5, 10'
+        }).addTo(map);
+      }
+
+      const path = checkpoints
+        .map(c => {
+          const loc = getLocationFromCheckpoint(c);
+          return cityCoords[loc];
+        })
+        .filter(p => p);
+      
+      if (cityCoords[dest] && path.length > 0) {
+        path.push(cityCoords[dest]);
+      }
+      
+      if (path.length > 1) {
+        polylines[tn].setLatLngs(path);
+      }
+    }
+
+    function latLngDistance(a, b) {
+      const R = 6371000;
+      const toRad = v => v * Math.PI / 180;
+      const dLat = toRad(b[0] - a[0]);
+      const dLon = toRad(b[1] - a[1]);
+      const lat1 = toRad(a[0]);
+      const lat2 = toRad(b[0]);
+      const sinDLat = Math.sin(dLat/2), sinDLon = Math.sin(dLon/2);
+      const aa = sinDLat*sinDLat + Math.cos(lat1)*Math.cos(lat2)*sinDLon*sinDLon;
+      const c = 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1-aa));
+      return R * c;
+    }
+
+    function interpolateAlongRoute(routeCoords, fraction) {
+      if (!routeCoords || routeCoords.length === 0) return null;
+      fraction = Math.min(1, Math.max(0, fraction));
+      const pts = routeCoords.map(p => [p.lat, p.lon]);
+      const segLens = [];
+      let total = 0;
+      for (let i=0;i<pts.length-1;i++){
+        const l = latLngDistance(pts[i], pts[i+1]);
+        segLens.push(l); total += l;
+      }
+      if (total === 0) return pts[pts.length-1];
+      let target = total * fraction;
+      for (let i=0;i<segLens.length;i++){
+        if (target <= segLens[i]){
+          const a = pts[i], b = pts[i+1];
+          const t = segLens[i] === 0 ? 0 : target / segLens[i];
+          const lat = a[0] + (b[0]-a[0]) * t;
+          const lon = a[1] + (b[1]-a[1]) * t;
+          return [lat, lon];
+        }
+        target -= segLens[i];
+      }
+      return pts[pts.length-1];
+    }
+
+    function easeInOutQuad(t){ return t<0.5 ? 2*t*t : -1 + (4-2*t)*t; }
+
+    function moveMarkerSmooth(tn, toPos, duration = 800) {
+      const marker = markers[tn];
+      if (!marker) return;
+      const fromLL = marker.getLatLng();
+      const from = [fromLL.lat, fromLL.lng];
+      const start = performance.now();
+      markerAnims[tn] = { from, to: toPos, start, duration };
+    }
+
+    (function animateMarkers(now) {
+      try {
+        for (const tn in markerAnims) {
+          const a = markerAnims[tn];
+          const marker = markers[tn];
+          if (!marker) { delete markerAnims[tn]; continue; }
+          const tRaw = Math.min(1, (now - a.start) / a.duration);
+          const t = easeInOutQuad(tRaw);
+          const lat = a.from[0] + (a.to[0] - a.from[0]) * t;
+          const lon = a.from[1] + (a.to[1] - a.from[1]) * t;
+          marker.setLatLng([lat, lon]);
+          if (tRaw >= 1) delete markerAnims[tn];
+        }
+      } catch (e) { console.error('Marker animation error', e); }
+      requestAnimationFrame(animateMarkers);
+    })(performance.now());
+
+    function refreshMap() {
+      Object.keys(markers).forEach(key => {
+        map.removeLayer(markers[key]);
+        delete markers[key];
+      });
+      Object.keys(polylines).forEach(key => {
+        map.removeLayer(polylines[key]);
+        delete polylines[key];
+      });
+      
+      const rows = document.querySelectorAll('#shipment-table tbody tr');
+      rows.forEach(row => {
+        const tn = row.dataset.tn;
+        fetch(`/admin/api/shipment/${tn}`)
+          .then(r => r.json())
+          .then(data => updateMap(data))
+          .catch(err => console.error('Failed to load shipment for map:', err));
+      });
+      
+      showToast('Map refreshed', 'info');
+    }
+
+    // ============================================================
+    // WEBSOCKET
+    // ============================================================
+    socket.on('tracking_update', (data) => {
+      if (data.tracking_number) {
+        updateMap(data);
+        updateTableRow(data);
+        // recompute stats from actual row states
+        calculateStats();
+      }
+    });
+
+    // ============================================================
+    // UPDATED updateTableRow - includes billing fields
+    // ============================================================
+    function updateTableRow(data) {
+      const row = document.querySelector(`tr[data-tn="${data.tracking_number}"]`);
+      if (!row) return;
+      const status = data.status || row.dataset.status;
+      const paused = data.paused || false;
+      // Keep dataset.status in sync so calculateStats() stays accurate
+      row.dataset.status = status;
+      const badge = row.querySelector('.status-badge');
+      const statusIcons = {
+        'Delivered': 'bi-check-circle',
+        'In_Transit': 'bi-truck',
+        'Out_for_Delivery': 'bi-box-arrow-up',
+        'Exception': 'bi-exclamation-triangle',
+        'Delayed': 'bi-clock',
+        'Pending': 'bi-hourglass-split',
+        'Customs_Clearance': 'bi-file-check',
+        'On_Hold': 'bi-pause-circle'
+      };
+      const iconClass = statusIcons[status] || 'bi-truck';
+      const statusColors = {
+        'Delivered': 'success',
+        'Exception': 'danger',
+        'Delayed': 'warning',
+        'On_Hold': 'warning',
+        'In_Transit': 'primary',
+        'Out_for_Delivery': 'info',
+        'Pending': 'secondary',
+        'Customs_Clearance': 'warning'
+      };
+      badge.className = `status-badge bg-${statusColors[status] || 'secondary'} text-white`;
+      badge.innerHTML = `<i class="bi ${iconClass} me-1"></i>${status}${paused ? ' <i class="bi bi-pause-circle ms-1"></i>' : ''}`;
+
+      if (data.stage) {
+        const stageEl = row.querySelector('.stage-badge');
+        const stageMap = {
+          'pickup': 'pickup',
+          'transit': 'transit',
+          'customs': 'customs',
+          'delivery': 'delivery',
+          'delivered': 'delivered',
+          'exception': 'exception'
+        };
+        const cls = stageMap[data.stage] || 'pickup';
+        stageEl.className = `stage-badge ${cls}`;
+        stageEl.textContent = (data.stage || 'Pickup').replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+        row.dataset.stage = data.stage;
+      }
+
+      if (data.progress !== undefined) {
+        const progressBar = row.querySelector('.progress-bar');
+        const percent = Math.round(data.progress * 100);
+        progressBar.style.width = percent + '%';
+        progressBar.setAttribute('aria-valuenow', percent);
+        const progressText = row.querySelector('.progress + small');
+        if (progressText) progressText.textContent = percent + '%';
+      }
+
+      if (data.speed_multiplier) {
+        const slider = row.querySelector('.speed-slider');
+        slider.value = data.speed_multiplier * 10;
+        row.querySelector('.speed-value').textContent = data.speed_multiplier.toFixed(1) + 'x';
+      }
+
+      // ───── BILLING UPDATES (NEW) ─────
+      if (data.payment_status !== undefined) {
+        const billingBadge = row.querySelector('.billing-badge');
+        if (billingBadge) {
+          const status = data.payment_status || 'unpaid';
+          billingBadge.className = `billing-badge ${status}`;
+          billingBadge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        }
+        row.dataset.paymentStatus = data.payment_status || 'unpaid';
+      }
+      if (data.invoice_amount !== undefined) {
+        const amountEl = row.querySelector('td:nth-child(5) div:first-child strong');
+        if (amountEl) amountEl.textContent = `$${data.invoice_amount.toFixed(2)}`;
+      }
+    }
+
+    // Recalculate stats from table rows (accurate and stable)
+    function calculateStats() {
+      const rows = document.querySelectorAll('#shipment-table tbody tr[data-tn]');
+      let inTransit = 0, delivered = 0, exceptions = 0;
+      
+      rows.forEach(row => {
+        const status = row.dataset.status;
+        if (status === 'In_Transit' || status === 'Out_for_Delivery') inTransit++;
+        else if (status === 'Delivered') delivered++;
+        else if (status === 'Exception') exceptions++;
+      });
+      
+      document.getElementById('in-transit-count').textContent = inTransit;
+      document.getElementById('delivered-count').textContent = delivered;
+      document.getElementById('exception-count').textContent = exceptions;
+    }
+
+    // ============================================================
+    // ADMIN CONTROLS
+    // ============================================================
+    function togglePause(tn, pause) {
+      const btn = event.target.closest('button, .dropdown-item');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+      }
+      
+      fetch('/admin/api/pause', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tracking_number: tn, pause })
+      })
+      .then(r => r.json())
+      .then(d => { 
+        if (d.success) {
+          showToast(`Shipment ${pause ? 'paused' : 'resumed'} successfully`, 'success');
+          setTimeout(() => location.reload(), 1000);
+        }
+      })
+      .finally(() => {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = pause ? 
+            '<i class="bi bi-play-fill me-2"></i>Resume' : 
+            '<i class="bi bi-pause-fill me-2"></i>Pause';
+        }
+      });
+    }
+
+    function updateSpeed(tn, speed) {
+      const row = document.querySelector(`tr[data-tn="${tn}"]`);
+      row.querySelector('.speed-value').textContent = speed.toFixed(1) + 'x';
+      
+      fetch('/admin/api/speed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tracking_number: tn, speed })
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) showToast(`Speed updated to ${speed}x`, 'success');
+      });
+    }
+
+    // ============================================================
+    // PAYMENT WALL ACTIONS
+    // ============================================================
+    function blockPayment(tn) {
+      const amount = prompt('Enter invoice amount (e.g. 49.99):');
+      if (amount === null) return;
+      const parsed = parseFloat(amount);
+      if (isNaN(parsed) || parsed <= 0) {
+        showToast('Please enter a valid amount', 'error');
+        return;
+      }
+      const reason = prompt('Reason for blocking (optional):') || 'Payment required.';
+      
+      fetch(`/admin/api/shipment/${tn}/block_payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: parsed, reason })
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast(`Shipment ${tn} blocked for payment`, 'success');
+          setTimeout(() => location.reload(), 800);
+        } else {
+          showToast(d.error || 'Failed to block shipment', 'error');
+        }
+      })
+      .catch(err => {
+        showToast('Error: ' + err.message, 'error');
+      });
+    }
+
+    function markPaid(tn) {
+      if (!confirm(`Mark shipment ${tn} as paid and resume simulation?`)) return;
+      
+      fetch(`/admin/api/shipment/${tn}/mark_paid`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          showToast(`Shipment ${tn} marked as paid and resumed`, 'success');
+          setTimeout(() => location.reload(), 800);
+        } else {
+          showToast(d.error || 'Failed to mark as paid', 'error');
+        }
+      })
+      .catch(err => {
+        showToast('Error: ' + err.message, 'error');
+      });
+    }
+
+    function showDetails(tn) {
+      document.getElementById('detailContent').innerHTML = `
+        <div class="text-center py-4">
+          <div class="spinner-border text-danger" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      `;
+      detailModal.show();
+
+      fetch(`/admin/api/shipment/${tn}`)
+        .then(r => r.json())
+        .then(data => {
+          const content = document.getElementById('detailContent');
+          const checkpoints = (data.checkpoints || []).slice(-10).reverse();
+          content.innerHTML = `
+            <div class="row g-3">
+              <div class="col-md-6">
+                <h6 class="fw-bold mb-3"><i class="bi bi-info-circle me-2 text-danger"></i>Shipment Information</h6>
+                ${[
+                  ['Tracking', data.tracking_number],
+                  ['Status', `<span class="badge bg-${data.status === 'Delivered' ? 'success' : data.status === 'Exception' ? 'danger' : data.status === 'On_Hold' ? 'warning' : 'primary'}">${data.status}</span>`],
+                  ['Origin/Pickup', data.origin_location || 'N/A'],
+                  ['Destination', data.delivery_location],
+                  ['Carrier', data.carrier || 'DHL'],
+                  ['Service', data.service_level || 'DHL Express'],
+                  ['Delivery Window', data.delivery_window || 'Calculating...'],
+                  ['Speed', data.speed_multiplier ? data.speed_multiplier.toFixed(1) + 'x' : '1.0x'],
+                  ['Mode', data.mode || 'Ground'],
+                  ['Invoice Amount', data.invoice_amount ? `$${data.invoice_amount.toFixed(2)}` : 'Not set'],
+                  ['Payment Method', data.payment_method || 'Not set'],
+                  ['Payment Status', `<span class="billing-badge ${data.payment_status === 'paid' ? 'paid' : data.payment_status === 'pending' ? 'pending' : data.payment_status === 'failed' ? 'failed' : 'unpaid'}">${(data.payment_status || 'unpaid').toUpperCase()}</span>`],
+                  ['Payment Reason', data.payment_reason || '—']
+                ].map(([label, val]) => `
+                  <div class="d-flex justify-content-between py-1 border-bottom" style="font-size:0.9rem;">
+                    <span class="text-muted">${label}</span>
+                    <span>${val}</span>
+                  </div>
+                `).join('')}
+                ${data.proof_of_delivery ? `
+                  <div class="mt-2 p-2 bg-success bg-opacity-10 rounded border border-success border-opacity-25">
+                    <i class="bi bi-check-circle text-success me-1"></i>
+                    <strong>Proof of Delivery:</strong> ${data.proof_of_delivery}
+                  </div>
+                ` : ''}
+                ${data.delivery_attempt ? `
+                  <div class="mt-2 p-2 bg-warning bg-opacity-10 rounded border border-warning border-opacity-25">
+                    <i class="bi bi-clock text-warning me-1"></i>
+                    <strong>Delivery Attempt:</strong> ${data.delivery_attempt}/${data.max_attempts || 3}
+                  </div>
+                ` : ''}
+                ${data.temperature ? `
+                  <div class="mt-2 p-2 bg-info bg-opacity-10 rounded border border-info border-opacity-25">
+                    <i class="bi bi-thermometer-half text-info me-1"></i>
+                    <strong>Temperature:</strong> ${data.temperature}°C
+                  </div>
+                ` : ''}
+                <div class="mt-3">
+                  <button class="btn btn-outline-secondary btn-sm me-2" onclick="showEditModal('${tn}')">
+                    <i class="bi bi-pencil-square"></i> Edit Shipment
+                  </button>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <h6 class="fw-bold mb-3"><i class="bi bi-clock-history me-2 text-danger"></i>Recent Activity</h6>
+                ${checkpoints.length ? checkpoints.map(c => `
+                  <div class="p-2 mb-1 rounded" style="font-size:0.85rem;border-left:3px solid ${c.includes('Delivered') ? '#22c55e' : c.includes('Exception') ? '#dc2626' : '#D40511'}; background: ${c.includes('Delivered') ? '#f0fdf4' : c.includes('Exception') ? '#fef2f2' : '#f8fafc'};">
+                    ${c}
+                  </div>
+                `).join('') : '<div class="text-muted">No checkpoints yet</div>'}
+              </div>
+            </div>
+          `;
+        })
+        .catch(err => {
+          document.getElementById('detailContent').innerHTML = 
+            '<div class="alert alert-danger">Error loading details</div>';
+          showToast('Failed to load shipment details', 'error');
+        });
+    }
+
+    function refreshData() {
+      location.reload();
+    }
+
+    // ============================================================
+    // EDIT MODAL – includes photo upload and billing fields
+    // ============================================================
+    function showEditModal(tn) {
+      fetch(`/admin/api/shipment/${tn}`)
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('editStatus').value = data.status || 'Pending';
+          document.getElementById('editStage').value = data.stage || 'pickup';
+          document.getElementById('editLockStage').checked = data.lock_stage || false;
+          document.getElementById('editServiceLevel').value = data.service_level || '';
+          document.getElementById('editDeliveryWindow').value = data.delivery_window || '';
+          document.getElementById('editRecipientEmail').value = data.recipient_email || '';
+          document.getElementById('editProofOfDelivery').value = data.proof_of_delivery || '';
+          document.getElementById('editSpeed').value = data.speed_multiplier || 1.0;
+          document.getElementById('editDays').value = data.sim_days || 10;
+          document.getElementById('editPaused').checked = !!data.paused;
+          document.getElementById('editDeliveryLocation').value = data.delivery_location || '';
+          document.getElementById('editForm').dataset.tn = tn;
+
+          // Billing fields
+          document.getElementById('editInvoiceAmount').value = data.invoice_amount || '';
+          document.getElementById('editPaymentMethod').value = data.payment_method || '';
+          document.getElementById('editPaymentStatus').value = data.payment_status || 'unpaid';
+          document.getElementById('editPaymentReason').value = data.payment_reason || '';
+
+          // Load photo preview
+          const photoUrl = data.photo_url || '';
+          const img = document.getElementById('currentPhoto');
+          if (photoUrl) {
+            img.src = photoUrl;
+            img.style.display = 'block';
+          } else {
+            img.style.display = 'none';
+          }
+
+          // Populate checkpoints
+          const checkpoints = data.checkpoints || [];
+          renderCheckpoints(checkpoints);
+
+          editModal.show();
+        })
+        .catch(err => {
+          showToast('Failed to load shipment for editing', 'error');
+        });
+    }
+
+    // ============================================================
+    // PHOTO UPLOAD
+    // ============================================================
+    function uploadPhoto() {
+      const tn = document.getElementById('editForm').dataset.tn;
+      const fileInput = document.getElementById('photoUpload');
+      const file = fileInput.files[0];
+      if (!file) {
+        showToast('Please select a photo first', 'warning');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('photo', file);
+
+      const btn = document.getElementById('uploadPhotoBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+      fetch(`/admin/api/shipment/${tn}/photo`, {
+        method: 'POST',
+        body: formData
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          document.getElementById('currentPhoto').src = data.photo_url;
+          document.getElementById('currentPhoto').style.display = 'block';
+          showToast('Photo uploaded successfully', 'success');
+        } else {
+          showToast(data.error || 'Upload failed', 'error');
+        }
+      })
+      .catch(err => {
+        showToast('Upload failed', 'error');
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-upload"></i> Upload';
+        fileInput.value = '';
+      });
+    }
+
+    // ============================================================
+    // CHECKPOINT EDITOR
+    // ============================================================
+    function renderCheckpoints(checkpoints) {
+      const container = document.getElementById('checkpointEditor');
+      container.innerHTML = '';
+      if (!checkpoints || checkpoints.length === 0) {
+        // Add one empty field
+        addCheckpointField('');
+      } else {
+        checkpoints.forEach(cp => addCheckpointField(cp));
+      }
+    }
+
+    function addCheckpointField(value = '') {
+      const container = document.getElementById('checkpointEditor');
+      const div = document.createElement('div');
+      div.className = 'checkpoint-item';
+      div.innerHTML = `
+        <input type="text" class="form-control form-control-sm" placeholder="Enter checkpoint" value="${escapeHtml(value)}">
+        <button type="button" class="btn btn-sm btn-outline-danger btn-remove" onclick="this.closest('.checkpoint-item').remove()">
+          <i class="bi bi-x"></i>
+        </button>
+      `;
+      container.appendChild(div);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function confirmDeleteShipment() {
+      const frm = document.getElementById('editForm');
+      const tn = frm.dataset.tn;
+      if (!tn || !confirm(`Delete shipment ${tn}? This cannot be undone.`)) {
+        return;
+      }
+      const deleteBtn = document.getElementById('deleteShipmentBtn');
+      deleteBtn.disabled = true;
+      deleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Deleting';
+
+      fetch(`/admin/api/shipment/${tn}/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.success) {
+          showToast('Shipment deleted', 'success');
+          setTimeout(() => location.reload(), 800);
+        } else {
+          showToast(d.error || 'Failed to delete shipment', 'error');
+          console.error('Delete failed', d);
+        }
+      })
+      .catch(err => {
+        showToast('Failed to delete shipment', 'error');
+        console.error(err);
+      })
+      .finally(() => {
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = '<i class="bi bi-trash me-1"></i>Delete Shipment';
+      });
+    }
+
+    function saveShipmentEdits() {
+      const frm = document.getElementById('editForm');
+      const tn = frm.dataset.tn;
+      if (!tn) { showToast('No shipment selected', 'error'); return; }
+
+      // Collect checkpoints from editor
+      const checkpointInputs = document.querySelectorAll('#checkpointEditor .checkpoint-item input');
+      const checkpoints = Array.from(checkpointInputs).map(inp => inp.value.trim()).filter(v => v !== '');
+
+      const payload = {
+        status: document.getElementById('editStatus').value,
+        stage: document.getElementById('editStage').value,
+        lock_stage: document.getElementById('editLockStage').checked,
+        service_level: document.getElementById('editServiceLevel').value,
+        delivery_window: document.getElementById('editDeliveryWindow').value,
+        recipient_email: document.getElementById('editRecipientEmail').value,
+        proof_of_delivery: document.getElementById('editProofOfDelivery').value,
+        speed: parseFloat(document.getElementById('editSpeed').value) || 1.0,
+        days: parseFloat(document.getElementById('editDays').value) || 10,
+        paused: document.getElementById('editPaused').checked,
+        delivery_location: document.getElementById('editDeliveryLocation').value,
+        checkpoints: checkpoints,
+        // Billing fields
+        invoice_amount: parseFloat(document.getElementById('editInvoiceAmount').value) || null,
+        payment_method: document.getElementById('editPaymentMethod').value,
+        payment_status: document.getElementById('editPaymentStatus').value,
+        payment_reason: document.getElementById('editPaymentReason').value
+      };
+
+      const saveBtn = document.getElementById('saveEditBtn');
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving';
+
+      fetch(`/admin/api/shipment/${tn}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.success) {
+          showToast('Shipment updated', 'success');
+          setTimeout(() => location.reload(), 800);
+        } else {
+          showToast('Failed to update shipment', 'error');
+          console.error('Update failed', d);
+        }
+      })
+      .catch(err => {
+        showToast('Failed to update shipment', 'error');
+        console.error(err);
+      })
+      .finally(() => {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="bi bi-save me-1"></i>Save Changes';
+      });
+    }
+
+    // ============================================================
+    // INIT - Calculate stats from existing table rows
+    // ============================================================
+    function calculateStats() {
+      const rows = document.querySelectorAll('#shipment-table tbody tr[data-tn]');
+      let inTransit = 0, delivered = 0, exceptions = 0;
+      
+      rows.forEach(row => {
+        const status = row.dataset.status;
+        if (status === 'In_Transit' || status === 'Out_for_Delivery') inTransit++;
+        else if (status === 'Delivered') delivered++;
+        else if (status === 'Exception') exceptions++;
+      });
+      
+      document.getElementById('in-transit-count').textContent = inTransit;
+      document.getElementById('delivered-count').textContent = delivered;
+      document.getElementById('exception-count').textContent = exceptions;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      calculateStats();
+
+      loadCityCoordinates().finally(() => {
+        const rows = document.querySelectorAll('#shipment-table tbody tr[data-tn]');
+        rows.forEach(row => {
+          const tn = row.dataset.tn;
+          fetch(`/admin/api/shipment/${tn}`)
+            .then(r => r.json())
+            .then(data => updateMap(data))
+            .catch(err => console.error('Failed to load shipment for map:', err));
+        });
+      });
+      
+      setTimeout(() => {
+        const count = Object.keys(markers).length;
+        document.getElementById('map-status').textContent = count > 0 ? 
+          `Live (${count} active)` : 'No active shipments';
+      }, 3000);
+      
+      console.log('✅ Admin Dashboard loaded');
+      showToast('Dashboard loaded successfully', 'success');
+    });
+  </script>
+  <script>
+    (function(){
+      function sendError(payload){
+        try{
+          navigator.sendBeacon && typeof navigator.sendBeacon === 'function' && navigator.sendBeacon('/admin/client_error', JSON.stringify(payload)) ||
+          fetch('/admin/client_error',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(()=>{});
+        }catch(e){}
+      }
+
+      window.addEventListener('error', function(e){
+        sendError({type:'error', message: e.message, filename: e.filename, lineno: e.lineno, colno: e.colno, stack: (e.error && e.error.stack) || null});
+      });
+      window.addEventListener('unhandledrejection', function(e){
+        var reason = e.reason || e.detail || null;
+        sendError({type:'unhandledrejection', reason: (reason && (reason.stack || reason.message)) || String(reason)});
+      });
+
+      document.addEventListener('DOMContentLoaded', function(){
+        var issues = [];
+        if (typeof io === 'undefined') issues.push('socket.io missing');
+        if (typeof L === 'undefined') issues.push('leaflet missing');
+        if (typeof $ === 'undefined') issues.push('jquery missing');
+        if (issues.length) sendError({type:'init_issues', issues: issues});
+
+        setTimeout(function(){
+          sendError({type:'client_heartbeat', io_defined: typeof io !== 'undefined', leaflet_defined: typeof L !== 'undefined', jquery_defined: typeof $ !== 'undefined'});
+          if (typeof io !== 'undefined'){
+            try{
+              var testSocket = io({transports:['polling']});
+              if (testSocket){
+                testSocket.on('connect', function(){ sendError({type:'socket_event', socket_status:'connected'}); try{testSocket.disconnect();}catch(e){} });
+                testSocket.on('connect_error', function(err){ sendError({type:'socket_event', socket_status:'connect_error', message: String(err)}); });
+                // Clean up if connect_error occurs (disconnect on error)
+                testSocket.on('connect_error', function(){ try{ testSocket.disconnect(); }catch(e){} });
+              }
+            }catch(err){ sendError({type:'socket_init_error', message: String(err)}); }
+          }
+        }, 2000);
+      });
+    })();
+  </script>
+</body>
+</html>

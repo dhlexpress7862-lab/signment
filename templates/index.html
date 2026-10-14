@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DHL Track & Trace</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --dhl-red: #D40511;
+            --dhl-yellow: #FFCC00;
+            --dhl-dark: #1a1a1a;
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+            --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+        }
+        
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            background-color: #f5f5f5;
+            background-image: url('{{ url_for('static', filename='fallback-image.jpg') }}');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            position: relative;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+        
+        /* Content Overlay – reduced opacity to let background show through */
+        .content-overlay {
+            position: relative;
+            background: rgba(255, 255, 255, 0.75); /* was 0.85 */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* === CLEAN GATE OVERLAY - White Background (No Lock Icon) === */
+        .gate-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #ffffff;
+            padding: 20px;
+        }
+        
+        .gate-card {
+            width: 100%;
+            max-width: 420px;
+            background: #ffffff;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        
+        .gate-card h2 {
+            color: var(--dhl-dark);
+            font-size: 22px;
+            font-weight: 700;
+            margin: 0 0 8px 0;
+            letter-spacing: -0.3px;
+        }
+        
+        .gate-card p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 0 0 24px 0;
+        }
+        
+        .gate-card .recaptcha-wrapper {
+            display: flex;
+            justify-content: center;
+            margin: 8px 0 16px 0;
+            min-height: 78px;
+        }
+        
+        .gate-card .gate-note {
+            color: #999;
+            font-size: 12px;
+            margin-top: 16px;
+        }
+        
+        /* Hide content until reCAPTCHA is solved */
+        body.recaptcha-locked .header,
+        body.recaptcha-locked .title,
+        body.recaptcha-locked .title-sub,
+        body.recaptcha-locked .track-section,
+        body.recaptcha-locked #tracking-result,
+        body.recaptcha-locked .blog-section,
+        body.recaptcha-locked .faq-section,
+        body.recaptcha-locked .footer {
+            visibility: hidden;
+        }
+        
+        body.recaptcha-locked .content-overlay {
+            pointer-events: none;
+        }
+        
+        body.recaptcha-locked #gate-overlay {
+            display: flex !important;
+            pointer-events: auto;
+        }
+        
+        body:not(.recaptcha-locked) #gate-overlay {
+            display: none !important;
+        }
+        
+        /* === HEADER === */
+        .header {
+            background: linear-gradient(135deg, var(--dhl-yellow) 0%, #fff 100%);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+            border-bottom: 1px solid rgba(0,0,0,0.04);
+        }
+        .header img {
+            height: 40px;
+            max-width: 100%;
+            object-fit: contain;
+        }
+        .header .menu {
+            font-size: 24px;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 50%;
+            transition: background 0.3s;
+            line-height: 1;
+            user-select: none;
+            background: none;
+            border: none;
+        }
+        .header .menu:hover {
+            background: rgba(0,0,0,0.05);
+        }
+        .menu-content {
+            display: none;
+            position: absolute;
+            right: 24px;
+            top: 64px;
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: var(--radius-sm);
+            padding: 8px 0;
+            box-shadow: var(--shadow-md);
+            min-width: 180px;
+            z-index: 1000;
+        }
+        .menu-content.show {
+            display: block;
+        }
+        .menu-content a {
+            display: block;
+            padding: 10px 20px;
+            color: #333;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background 0.2s, color 0.2s;
+        }
+        .menu-content a:hover {
+            background-color: #f5f5f5;
+            color: var(--dhl-red);
+        }
+        
+        /* === TITLE === */
+        .title {
+            text-align: center;
+            color: var(--dhl-red);
+            font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+            margin: 40px 0 8px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            line-height: 1.1;
+            padding: 0 12px;
+        }
+        .title-sub {
+            text-align: center;
+            color: #666;
+            font-size: 1.1em;
+            margin-bottom: 24px;
+            padding: 0 12px;
+        }
+        
+        /* === TRACKING FORM === */
+        .track-section {
+            display: flex;
+            justify-content: center;
+            margin: 10px 0 30px;
+            padding: 0 16px;
+        }
+        .track-box {
+            background: #fff;
+            padding: 32px;
+            border-radius: var(--radius-lg);
+            max-width: 680px;
+            width: 100%;
+            box-shadow: var(--shadow-md);
+            border: 1px solid #eee;
+            box-sizing: border-box;
+            transition: box-shadow 0.3s ease;
+        }
+        .track-box:hover {
+            box-shadow: var(--shadow-lg);
+        }
+        .track-box label {
+            display: block;
+            color: #333;
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-align: left;
+        }
+        .track-box input {
+            width: 100%;
+            padding: 12px 14px;
+            margin-bottom: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: var(--radius-sm);
+            box-sizing: border-box;
+            font-size: 16px; /* Prevents auto-zoom on iOS */
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .track-box input:focus {
+            outline: none;
+            border-color: var(--dhl-red);
+            box-shadow: 0 0 0 3px rgba(212, 5, 17, 0.1);
+        }
+        .track-box input:disabled {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+        }
+        .track-box button {
+            background-color: var(--dhl-red);
+            color: white;
+            padding: 14px 20px;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .track-box button:hover:not(:disabled) {
+            background-color: #b0040e;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(212, 5, 17, 0.3);
+        }
+        .track-box button:disabled {
+            background-color: #e57373;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .track-box .recaptcha-note {
+            font-size: 0.8rem;
+            color: #999;
+            text-align: center;
+            margin-top: 12px;
+        }
+        
+        /* === TRACKING RESULT === */
+        .tracking-result {
+            display: none;
+            margin: 20px auto;
+            max-width: 800px;
+            padding: 0 16px;
+            width: 100%;
+            animation: fadeInUp 0.4s ease;
+        }
+        .tracking-result .card {
+            background: #fff;
+            border-radius: var(--radius-md);
+            padding: 24px;
+            box-shadow: var(--shadow-md);
+            border: 1px solid #eee;
+        }
+        
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* === ERROR MESSAGE === */
+        .error-message {
+            display: none;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            margin-top: 12px;
+            font-size: 0.95rem;
+        }
+        .error-message.show {
+            display: block;
+        }
+        
+        /* === BLOG SECTION - OPTIMIZED FOR 741x774 IMAGES === */
+        .blog-section {
+            max-width: 1400px;
+            margin: 50px auto 30px;
+            padding: 0 20px;
+        }
+        .blog-section .section-title {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--dhl-dark);
+            margin-bottom: 4px;
+        }
+        .blog-section .section-subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 1rem;
+            margin-bottom: 32px;
+        }
+        .blog-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 35px;
+        }
+        .blog-card {
+            background: #fff;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid #eee;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+        .blog-card:hover {
+            transform: translateY(-6px);
+            box-shadow: var(--shadow-lg);
+        }
+        .blog-card .blog-image-wrapper {
+            width: 100%;
+            overflow: hidden;
+            background: #f0f0f0;
+            position: relative;
+        }
+        .blog-card .blog-image-wrapper .blog-image {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 741 / 774;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.5s ease;
+            background: #f0f0f0;
+        }
+        .blog-card:hover .blog-image-wrapper .blog-image {
+            transform: scale(1.03);
+        }
+        .blog-card .blog-label {
+            padding: 18px 22px 22px;
+            font-size: 1rem;
+            color: #555;
+            text-align: center;
+            border-top: 1px solid #f0f0f0;
+            font-weight: 500;
+        }
+        .blog-card .blog-label .blog-date {
+            display: block;
+            font-size: 0.8rem;
+            color: #999;
+            margin-top: 4px;
+            font-weight: 400;
+        }
+        
+        /* === FAQ === */
+        .faq-section {
+            margin: 30px auto;
+            max-width: 800px;
+            padding: 0 20px;
+            width: 100%;
+        }
+        .faq-section h2 {
+            color: var(--dhl-dark);
+            font-size: 1.6rem;
+            margin-bottom: 24px;
+            font-weight: 700;
+            text-align: center;
+        }
+        .faq-item {
+            border-bottom: 1px solid #e5e5e5;
+            padding: 16px 0;
+        }
+        .faq-item:last-child {
+            border-bottom: none;
+        }
+        .faq-item .faq-question {
+            color: var(--dhl-dark);
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 4px 0;
+            transition: color 0.2s;
+        }
+        .faq-item .faq-question:hover {
+            color: var(--dhl-red);
+        }
+        .faq-item .faq-question .arrow {
+            transition: transform 0.3s ease;
+            font-size: 12px;
+            color: #999;
+        }
+        .faq-item .faq-question .arrow.open {
+            transform: rotate(180deg);
+        }
+        .faq-item .faq-answer {
+            display: none;
+            margin-top: 10px;
+            color: #555;
+            font-size: 14px;
+            line-height: 1.7;
+            padding-left: 8px;
+            border-left: 3px solid var(--dhl-red);
+            padding-left: 16px;
+        }
+        .faq-item .faq-answer.open {
+            display: block;
+        }
+        
+        /* === FOOTER === */
+        .footer {
+            background: linear-gradient(135deg, var(--dhl-yellow) 0%, #fff 100%);
+            padding: 40px 20px 24px;
+            color: #333;
+            text-align: center;
+            margin-top: 40px;
+            border-top: 1px solid rgba(0,0,0,0.04);
+        }
+        .footer .footer-content {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            max-width: 1200px;
+            margin: 0 auto 24px;
+            gap: 20px;
+        }
+        .footer-section {
+            flex: 1;
+            min-width: 150px;
+            text-align: left;
+        }
+        .footer-section h3 {
+            color: var(--dhl-red);
+            font-size: 1.05rem;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+        .footer-section p, .footer-section a {
+            color: #333;
+            text-decoration: none;
+            display: block;
+            margin: 6px 0;
+            font-size: 0.92rem;
+            transition: color 0.2s;
+        }
+        .footer-section a:hover {
+            color: var(--dhl-red);
+        }
+        .footer .copyright {
+            font-size: 0.82rem;
+            color: #666;
+            margin-top: 15px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(0,0,0,0.08);
+        }
+
+        /* === PREVENT ZOOM ON INPUT FOCUS (FIX) === */
+        input, select, textarea {
+            font-size: 16px !important; /* Prevents auto-zoom on iOS */
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 1024px) {
+            .blog-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 25px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .title { font-size: 2em; margin-top: 30px; }
+            .track-box { padding: 24px; }
+            .footer .footer-content { flex-direction: column; align-items: center; text-align: center; }
+            .footer-section { min-width: 100%; text-align: center; }
+            .blog-grid { grid-template-columns: 1fr; max-width: 550px; margin: 0 auto; }
+            .blog-section .section-title { font-size: 1.6rem; }
+            .gate-card { padding: 32px 24px; }
+        }
+        
+        @media (max-width: 480px) {
+            .header { padding: 8px 12px; }
+            .header img { height: 30px; }
+            .header .menu { font-size: 20px; padding: 8px; }
+            .menu-content { right: 12px; top: 52px; min-width: 150px; }
+            .title { font-size: 1.6em; margin-top: 20px; }
+            .title-sub { font-size: 0.95rem; }
+            .track-box { padding: 16px; border-radius: var(--radius-sm); }
+            .track-box input { font-size: 16px; padding: 10px 12px; } /* ensure 16px on small screens too */
+            .track-box button { font-size: 16px; padding: 12px; }
+            .faq-section { padding: 0 12px; }
+            .faq-section h2 { font-size: 1.3rem; }
+            .footer { padding: 20px 12px 16px; margin-top: 20px; }
+            .footer-section h3 { font-size: 0.95rem; }
+            .gate-card { padding: 24px 16px; }
+            .gate-card h2 { font-size: 18px; }
+            .gate-card p { font-size: 13px; }
+            .blog-section { padding: 0 12px; }
+            .blog-card .blog-label { font-size: 0.85rem; padding: 14px 16px; }
+            .tracking-result .card { padding: 16px; }
+        }
+        
+        @media (max-width: 380px) {
+            .title { font-size: 1.4em; }
+            .track-box { padding: 12px; }
+            .track-box input { font-size: 16px; padding: 8px 10px; }
+            .track-box button { font-size: 16px; padding: 10px; }
+        }
+        
+        /* Mobile: adjust overlay opacity if needed (no video-related styles) */
+        @media (max-width: 420px) {
+            body { background-color: #f5f5f5; }
+            .content-overlay {
+                background: rgba(255, 255, 255, 0.85);
+            }
+        }
+
+        /* Utility classes */
+        .text-dhl-red { color: var(--dhl-red); }
+        .bg-dhl-red { background-color: var(--dhl-red); }
+        .border-dhl-red { border-color: var(--dhl-red); }
+    </style>
+    
+    <!-- reCAPTCHA script -->
+    {% if recaptcha_site_key %}
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    {% endif %}
+    <!-- Socket.IO script -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    
+    <!-- Tawk.to chat -->
+    <script type="text/javascript">
+        var Tawk_API = Tawk_API || {}, Tawk_LoadStart = new Date();
+        (function() {
+            var s1 = document.createElement("script"), s0 = document.getElementsByTagName("script")[0];
+            s1.async = true;
+            s1.src = 'https://embed.tawk.to/6a9aee21dda389344be803d5/default';
+            s1.charset = 'UTF-8';
+            s1.setAttribute('crossorigin', '*');
+            s0.parentNode.insertBefore(s1, s0);
+        })();
+    </script>
+</head>
+
+<!-- ✅ FIX: Add recaptcha-locked class directly to <body> if reCAPTCHA is enabled -->
+<body class="{% if recaptcha_site_key %}recaptcha-locked{% endif %}">
+
+    <!-- Content Overlay -->
+    <div class="content-overlay">
+        
+        <!-- === CLEAN GATE OVERLAY - White (No Lock Icon) === -->
+        {% if recaptcha_site_key %}
+        <div id="gate-overlay" class="gate-overlay">
+            <div class="gate-card" role="dialog" aria-modal="true">
+                <h2>Please verify you're human</h2>
+                <p id="gate-message">Complete the reCAPTCHA below to unlock the tracking page.</p>
+                <div class="recaptcha-wrapper">
+                    <div id="gate-recaptcha" class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}" data-callback="recaptchaGateSuccess"></div>
+                </div>
+                <p class="gate-note">If the reCAPTCHA doesn't load, refresh the page.</p>
+            </div>
+        </div>
+        {% else %}
+        <div id="gate-overlay" class="gate-overlay" style="display:none"></div>
+        {% endif %}
+
+        <!-- === HEADER === -->
+        <div class="header">
+            <img src="{{ url_for('static', filename='dhl-logo.png') }}" alt="DHL Logo">
+            <button class="menu" aria-label="Toggle navigation" aria-expanded="false" type="button">☰</button>
+            <div id="menu-content" class="menu-content">
+                <a href="{{ url_for('index') }}">Home</a>
+                <a href="#tracking">Track Shipment</a>
+                <a href="#faq">FAQ</a>
+                <a href="#blog">Blog</a>
+                <a href="#">Contact</a>
+            </div>
+        </div>
+
+        <!-- === TITLE === -->
+        <div class="title" id="tracking">Track & Trace</div>
+        <div class="title-sub">Enter your DHL tracking number for real-time updates</div>
+
+        <!-- === TRACKING FORM === -->
+        <div class="track-section">
+            <div class="track-box">
+                <form id="trackForm" method="POST" action="{{ url_for('track') }}">
+                    {{ form.hidden_tag() }}
+                    <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response" />
+                    
+                    <label for="tracking_number">Tracking Number</label>
+                    {{ form.tracking_number(id='tracking_number', placeholder='Enter your tracking number (e.g., JD1234567890)', pattern='[A-Za-z0-9]{10,20}', title='Enter a valid tracking number (10-20 alphanumeric characters)', required=True, maxlength=50) }}
+                    
+                    <label for="email" class="mt-4">Email for Updates <span class="text-gray-400 text-sm">(Optional)</span></label>
+                    {{ form.email(id='email', placeholder='Enter your email address for notifications', type='email') }}
+                    
+                    {{ form.submit(id='submit-btn', class='bg-dhl-red hover:bg-red-700 text-white font-bold py-3 px-4 rounded w-full cursor-pointer mt-4', disabled='disabled') }}
+                    
+                    <div class="recaptcha-note">Protected by reCAPTCHA</div>
+                </form>
+                <div id="error-message" class="error-message"></div>
+            </div>
+        </div>
+
+        <!-- Tracking Results Container -->
+        <div id="tracking-result" class="tracking-result">
+            <div class="card">
+                <div id="result-content">
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+        </div>
+
+        <!-- === BLOG SECTION - OPTIMIZED FOR 741x774 IMAGES === -->
+        <div class="blog-section" id="blog">
+            <div class="section-title">From the DHL Blog</div>
+            <div class="section-subtitle">Stories and insights from our team</div>
+            
+            <div class="blog-grid">
+                <div class="blog-card">
+                    <div class="blog-image-wrapper">
+                        <img class="blog-image" src="{{ url_for('static', filename='blog-1.jpg') }}" alt="DHL Logistics & Innovation" loading="lazy">
+                    </div>
+                    <div class="blog-label">
+                        DHL Logistics & Innovation
+                        <span class="blog-date">March 15, 2026</span>
+                    </div>
+                </div>
+
+                <div class="blog-card">
+                    <div class="blog-image-wrapper">
+                        <img class="blog-image" src="{{ url_for('static', filename='blog-2.jpg') }}" alt="DHL Air Freight & Express" loading="lazy">
+                    </div>
+                    <div class="blog-label">
+                        DHL Air Freight & Express
+                        <span class="blog-date">March 12, 2026</span>
+                    </div>
+                </div>
+
+                <div class="blog-card">
+                    <div class="blog-image-wrapper">
+                        <img class="blog-image" src="{{ url_for('static', filename='blog-3.jpg') }}" alt="DHL Delivery & Customer Service" loading="lazy">
+                    </div>
+                    <div class="blog-label">
+                        DHL Delivery & Customer Service
+                        <span class="blog-date">March 10, 2026</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- === FAQ SECTION === -->
+        <div class="faq-section" id="faq">
+            <h2>Frequently Asked Questions</h2>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFAQ('faq1')">
+                    What Is a Tracking Number & Where Can I Find It?
+                    <span class="arrow">▼</span>
+                </div>
+                <div id="faq1" class="faq-answer">A tracking number is a unique ID assigned to your shipment. You can find it on your shipping confirmation email, receipt, or the shipping label. DHL tracking numbers typically start with "JD" followed by 10 digits.</div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFAQ('faq2')">
+                    When will my tracking information appear?
+                    <span class="arrow">▼</span>
+                </div>
+                <div id="faq2" class="faq-answer">Tracking information typically appears within 24 hours after your shipment is processed and picked up by DHL. For express shipments, updates may appear within 2-4 hours.</div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFAQ('faq3')">
+                    Why is my tracking number not working?
+                    <span class="arrow">▼</span>
+                </div>
+                <div id="faq3" class="faq-answer">Ensure you've entered the number correctly. Common issues include: the shipment hasn't been processed yet, you're using the wrong format, or the number has expired. If it still doesn't work, contact DHL customer support.</div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFAQ('faq4')">
+                    What does "In Transit" mean?
+                    <span class="arrow">▼</span>
+                </div>
+                <div id="faq4" class="faq-answer">"In Transit" means your shipment is on its way to the destination and is actively moving through the DHL network. It has been picked up and is being transported through various hubs and facilities.</div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFAQ('faq5')">
+                    Will I receive email updates?
+                    <span class="arrow">▼</span>
+                </div>
+                <div id="faq5" class="faq-answer">Yes. If you provide your email when tracking, you'll receive automatic updates about your shipment status. You can also opt-in for notifications via the tracking page.</div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFAQ('faq6')">
+                    What do the different statuses mean?
+                    <span class="arrow">▼</span>
+                </div>
+                <div id="faq6" class="faq-answer">
+                    <strong>Pending:</strong> Shipment information received<br>
+                    <strong>In Transit:</strong> Package is moving through the network<br>
+                    <strong>Out for Delivery:</strong> Package is with the courier<br>
+                    <strong>Delivered:</strong> Package has been delivered<br>
+                    <strong>Delayed:</strong> Delivery is delayed due to customs, weather, or other reasons<br>
+                    <strong>Exception:</strong> An unexpected event has occurred
+                </div>
+            </div>
+        </div>
+
+        <!-- === FOOTER === -->
+        <div class="footer">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Contact Us</h3>
+                    <p>Email: support@dhl.com</p>
+                    <p>Phone: +1 700 345 6789</p>
+                    <p>Address: 1 DHL Way, International</p>
+                    <p>Hours: 24/7 Customer Support</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Follow Us</h3>
+                    <a href="https://x.com/dhl" target="_blank" rel="noopener">X (Twitter)</a>
+                    <a href="https://facebook.com/dhl" target="_blank" rel="noopener">Facebook</a>
+                    <a href="https://instagram.com/dhl" target="_blank" rel="noopener">Instagram</a>
+                    <a href="https://linkedin.com/company/dhl" target="_blank" rel="noopener">LinkedIn</a>
+                </div>
+                <div class="footer-section">
+                    <h3>Legal</h3>
+                    <a href="#">Terms & Conditions</a>
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Cookie Policy</a>
+                </div>
+                <div class="footer-section">
+                    <h3>Support</h3>
+                    <a href="#">Help Center</a>
+                    <a href="#faq">FAQs</a>
+                    <a href="#">Contact Support</a>
+                    <a href="#">Track Another Package</a>
+                </div>
+            </div>
+            <div class="copyright">
+                &copy; 2026 DHL International GmbH. All rights reserved. | 
+                <span style="color: #999;">Version 2.0.1</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // reCAPTCHA Callback - No Toast Notification
+        // ============================================================
+        function recaptchaGateSuccess(token) {
+            document.getElementById('g-recaptcha-response').value = token;
+            document.getElementById('submit-btn').disabled = false;
+            // ✅ Remove the lock class to show the page content
+            document.body.classList.remove('recaptcha-locked');
+            const overlay = document.getElementById('gate-overlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+            }
+        }
+
+        // ============================================================
+        // ✅ No need for lockPageUntilRecaptcha() – class already on body
+        // ============================================================
+        // If reCAPTCHA is not configured, enable the form immediately
+        {% if not recaptcha_site_key %}
+        document.getElementById('submit-btn').disabled = false;
+        const overlay = document.getElementById('gate-overlay');
+        if (overlay) overlay.style.display = 'none';
+        // Also remove the locked class if it was applied (shouldn't be)
+        document.body.classList.remove('recaptcha-locked');
+        {% endif %}
+
+        // ============================================================
+        // Hamburger Menu
+        // ============================================================
+        document.querySelector('.menu').addEventListener('click', function(e) {
+            e.stopPropagation();
+            const menu = document.getElementById('menu-content');
+            menu.classList.toggle('show');
+            this.setAttribute('aria-expanded', menu.classList.contains('show'));
+        });
+        
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('menu-content');
+            const menuBtn = document.querySelector('.menu');
+            if (!menu.contains(e.target) && e.target !== menuBtn) {
+                menu.classList.remove('show');
+                menuBtn.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        // ============================================================
+        // FAQ Toggle
+        // ============================================================
+        function toggleFAQ(id) {
+            const answer = document.getElementById(id);
+            const question = answer.closest('.faq-item').querySelector('.faq-question');
+            const arrow = question.querySelector('.arrow');
+            
+            if (answer.classList.contains('open')) {
+                answer.classList.remove('open');
+                arrow.classList.remove('open');
+            } else {
+                document.querySelectorAll('.faq-answer').forEach(el => {
+                    el.classList.remove('open');
+                });
+                document.querySelectorAll('.faq-question .arrow').forEach(el => {
+                    el.classList.remove('open');
+                });
+                answer.classList.add('open');
+                arrow.classList.add('open');
+            }
+        }
+
+        // ============================================================
+        // Full-page form submission
+        // ============================================================
+        const trackForm = document.getElementById('trackForm');
+        if (trackForm) {
+            trackForm.addEventListener('submit', function() {
+                const btn = document.getElementById('submit-btn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = 'Searching...';
+                }
+            });
+        }
+
+        // ============================================================
+        // Helper Functions
+        // ============================================================
+        function enableTrackingControls() {
+            const trackingResult = document.getElementById('tracking-result');
+            if (trackingResult) {
+                trackingResult.style.display = 'block';
+                trackingResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function showError(message) {
+            const errorEl = document.getElementById('error-message');
+            if (!errorEl) return;
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+            const trackingResult = document.getElementById('tracking-result');
+            if (trackingResult) {
+                trackingResult.style.display = 'none';
+            }
+        }
+
+        // ============================================================
+        // Socket.IO (Real-time Updates)
+        // ============================================================
+        const socket = io({ 
+            transports: ['polling', 'websocket'],
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000
+        });
+
+        socket.on('connect', function() {
+            console.log('Connected to real-time tracking server');
+        });
+
+        socket.on('disconnect', function() {
+            console.log('Disconnected from tracking server');
+        });
+
+        socket.on('tracking_update', function(data) {
+            console.log('Tracking update received:', data);
+            const currentTn = document.querySelector('#result-content .tracking-number');
+            if (currentTn && data.tracking_number === currentTn.textContent.trim()) {
+                updateTrackingDisplay(data);
+            }
+        });
+
+        function updateTrackingDisplay(data) {
+            const container = document.getElementById('result-content');
+            if (!container) return;
+            
+            const statusEl = container.querySelector('.shipment-status');
+            if (statusEl && data.status) {
+                const statusColors = {
+                    'Delivered': 'bg-green-100 text-green-800',
+                    'In_Transit': 'bg-blue-100 text-blue-800',
+                    'Out_for_Delivery': 'bg-purple-100 text-purple-800',
+                    'Delayed': 'bg-yellow-100 text-yellow-800',
+                    'Exception': 'bg-red-100 text-red-800',
+                    'Pending': 'bg-gray-100 text-gray-800'
+                };
+                statusEl.className = `shipment-status inline-block px-3 py-1 rounded-full text-sm font-medium ${statusColors[data.status] || 'bg-gray-100 text-gray-800'}`;
+                statusEl.textContent = data.status;
+            }
+            
+            const progressBar = container.querySelector('.progress-bar .fill');
+            if (progressBar && data.progress !== undefined) {
+                const percent = Math.round(data.progress * 100);
+                progressBar.style.width = percent + '%';
+                progressBar.textContent = percent + '%';
+            }
+            
+            const checkpointsContainer = container.querySelector('.checkpoints-list');
+            if (checkpointsContainer && data.checkpoints) {
+                checkpointsContainer.innerHTML = data.checkpoints.map(cp => {
+                    const parts = cp.split(' - ');
+                    const time = parts[0] || '';
+                    const location = parts[1] || '';
+                    const event = parts.slice(2).join(' - ') || '';
+                    const isDelivered = event.toLowerCase().includes('delivered');
+                    return `
+                        <div class="checkpoint-item flex gap-3 py-2 border-b border-gray-100 last:border-0">
+                            <div class="flex-shrink-0 mt-1">
+                                <div class="w-2 h-2 rounded-full ${isDelivered ? 'bg-green-500' : 'bg-dhl-red'}"></div>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-500">${time}</div>
+                                <div class="font-medium text-gray-700">${location}</div>
+                                <div class="text-sm text-gray-600">${event}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+            const lastUpdated = container.querySelector('.last-updated');
+            if (lastUpdated && data.last_updated) {
+                const date = new Date(data.last_updated);
+                lastUpdated.textContent = 'Last updated: ' + date.toLocaleString();
+            }
+        }
+
+        // ============================================================
+        // ✅ Enhanced reCAPTCHA retry with user feedback
+        // ============================================================
+        {% if recaptcha_site_key %}
+        setTimeout(function() {
+            const container = document.getElementById('gate-recaptcha');
+            const gateMessage = document.getElementById('gate-message');
+            if (container && !container.innerHTML.trim()) {
+                if (window.grecaptcha) {
+                    try {
+                        grecaptcha.render(container, {
+                            'sitekey': '{{ recaptcha_site_key }}',
+                            'callback': 'recaptchaGateSuccess'
+                        });
+                    } catch (e) {
+                        console.warn('reCAPTCHA render retry failed:', e);
+                        if (gateMessage) {
+                            gateMessage.innerHTML = 'reCAPTCHA failed to load. Please <a href="#" onclick="location.reload()">refresh the page</a>.';
+                        }
+                    }
+                } else {
+                    // grecaptcha not loaded yet – show refresh link
+                    if (gateMessage) {
+                        gateMessage.innerHTML = 'reCAPTCHA is taking too long. Please <a href="#" onclick="location.reload()">refresh the page</a>.';
+                    }
+                }
+            }
+        }, 3000);
+
+        // Also if after 8 seconds still no reCAPTCHA, show a clearer error
+        setTimeout(function() {
+            const container = document.getElementById('gate-recaptcha');
+            const gateMessage = document.getElementById('gate-message');
+            if (container && !container.innerHTML.trim()) {
+                if (gateMessage) {
+                    gateMessage.innerHTML = 'Unable to load reCAPTCHA. Please <a href="#" onclick="location.reload()">refresh the page</a> or try again later.';
+                }
+            }
+        }, 8000);
+        {% endif %}
+
+        // ============================================================
+        // Keyboard Shortcuts
+        // ============================================================
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                const form = document.getElementById('trackForm');
+                if (form) form.dispatchEvent(new Event('submit'));
+            }
+            if (e.key === 'Escape') {
+                const menu = document.getElementById('menu-content');
+                if (menu.classList.contains('show')) {
+                    menu.classList.remove('show');
+                    document.querySelector('.menu').setAttribute('aria-expanded', 'false');
+                }
+            }
+        });
+
+        console.log('DHL Track & Trace loaded successfully');
+        console.log('Version: 2.0.2 – reCAPTCHA gate fixed');
+        console.log('reCAPTCHA:', '{{ recaptcha_site_key }}' ? 'Enabled' : 'Disabled');
+    </script>
+</body>
+</html>

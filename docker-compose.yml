@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: gunicorn --worker-class eventlet -w 1 -b 0.0.0.0:${PORT:-10000} app:app
+    ports:
+      - "${PORT:-10000}:${PORT:-10000}"
+    env_file:
+      - .env                     # reads all variables from .env
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  telegram_bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python3 bot.py
+    env_file:
+      - .env                     # same .env, bot needs many of these
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python3 worker.py
+    env_file:
+      - .env                     # worker also uses Redis, DB, SMTP, etc.
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-consignment_dnpg_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-S1b4G7NuIiXUQbMl2JYZ5BO5sV6TFsyy}
+      - POSTGRES_DB=${POSTGRES_DB:-consignment_dnpg}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:6
+    networks:
+      - app-network
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+
+networks:
+  app-network:
+    driver: bridge
