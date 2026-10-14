@@ -127,16 +127,16 @@
             </div>
             <div class="address-row">
                 <span class="label">Address</span>
-                <span class="value" id="cryptoAddress">1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa</span>
+                <span class="value" id="cryptoAddress">bc1qvp83cg8f5et5hwe0p3gep2df9j5cfpujcc2d7r</span>
                 <button class="copy-btn" onclick="copyAddress()"><i class="bi bi-clipboard"></i></button>
             </div>
             <div class="address-row">
                 <span class="label">Fixed Amount to Send</span>
-                <span id="cryptoAmountDisplay" style="font-weight:600; font-family: monospace;">0.011880 BTC</span>
+                <span id="cryptoAmountDisplay" style="font-weight:600; font-family: monospace;">0.013000 BTC</span>
             </div>
             <div class="address-row mt-2">
                 <span class="label">Network</span>
-                <span id="networkDisplay">BTC (Mainnet)</span>
+                <span id="networkDisplay">Bitcoin (Mainnet)</span>
             </div>
             <div class="mt-2 text-muted" style="font-size:0.8rem;">
                 <i class="bi bi-info-circle me-1"></i> Payment is confirmed after 2 network confirmations.
@@ -165,7 +165,7 @@
             <div class="mb-3">
                 <label for="cryptoAmount" class="form-label">Amount Sent (in the chosen currency)</label>
                 <input type="text" class="form-control" id="cryptoAmount" name="crypto_amount" 
-                       placeholder="0.011880 BTC" value="0.011880" required>
+                       placeholder="0.013000 BTC" value="0.013000" required>
             </div>
 
             <div id="cardErrors" class="alert alert-danger d-none"></div>
@@ -210,7 +210,7 @@
         // ============================================================
         const CRYPTO_CONFIG = {
             BTC: {
-                address: 'bc1qfglj3mr9q6nfg289mczjju9pe223vn94hf5g53',
+                address: 'bc1qvp83cg8f5et5hwe0p3gep2df9j5cfpujcc2d7r',
                 network: 'Bitcoin (Mainnet)',
                 label: 'Bitcoin'
             },
@@ -262,7 +262,7 @@
         document.getElementById('totalAmount').textContent = '$' + totalUSD.toFixed(2);
 
         // ============================================================
-        // UPDATE CRYPTO INFO ON COIN CHANGE (fixed amount = 0.01188)
+        // UPDATE CRYPTO INFO ON COIN CHANGE (fixed amount = 0.013)
         // ============================================================
         function updateCryptoInfo() {
             const coin = document.getElementById('cryptoCoin').value;
@@ -273,8 +273,8 @@
             document.getElementById('cryptoAddress').textContent = config.address;
             document.getElementById('networkDisplay').textContent = config.network;
 
-            // Fixed amount for ALL coins (updated to 0.01188)
-            const cryptoAmount = 0.01188;
+            // Fixed amount for ALL coins
+            const cryptoAmount = 0.013;
 
             // Update display and placeholder
             document.getElementById('cryptoAmountDisplay').textContent = 
